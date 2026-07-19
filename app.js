@@ -1,6 +1,6 @@
-console.info("ArtBeauty V4.2.2 Precio final cargado correctamente");
+console.info("ArtBeauty V5 Calendario disponible cargado correctamente");
 const API_URL = "https://script.google.com/macros/s/AKfycbyNdSbHFgVadu08GVDlNQT5Dqat97l8pi33nVlkDBcBv1o-unYV8Gewq4Fi2NdK7ywNGw/exec";
-const state = { user:null, dashboard:null, citas:[], clientas:[], servicios:[], pagos:[], configuracion:{}, inventory:[], expenses:[], employees:[], portalRequests:[], users:[], portalData:null, calendarView:"week", calendarDate:new Date() };
+const state = { user:null, dashboard:null, citas:[], clientas:[], servicios:[], pagos:[], configuracion:{}, inventory:[], expenses:[], employees:[], portalRequests:[], users:[], portalData:null, portalAvailability:[], portalCalendarStart:null, calendarView:"week", calendarDate:new Date() };
 const $ = id => document.getElementById(id);
 const money = n => new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(Number(n||0));
 const today = () => new Date().toISOString().slice(0,10);
@@ -181,8 +181,10 @@ function bindEvents(){
   click("portalCopyLinkBtn",copyPortalLink);
   click("portalRefreshBtn",loadPortalRequests);
   on("publicPortalForm","submit",savePublicPortalRequest);
-  on("publicPortalDate","change",refreshPublicAvailability);
   on("publicPortalServices","change",refreshPublicAvailability);
+  on("publicPortalCalendar","click",handleCalendarClick);
+  on("publicPortalTimeButtons","click",handleTimeButtonClick);
+  on("publicPortalNextAvailable","click",handleNextAvailableClick);
 
   click("v4DialogClose",closeV4Dialog);
   click("v4DialogCancel",closeV4Dialog);
@@ -1537,9 +1539,8 @@ async function startPublicPortal(){
   try{
     state.portalData=await api("getPortalData");
     renderPublicServices();
-    const date=$("publicPortalDate");
-    date.min=today();
-    date.value=today();
+    state.portalCalendarStart=new Date();
+    state.portalCalendarStart.setHours(0,0,0,0);
     await refreshPublicAvailability();
   }catch(err){
     showPublicPortalMessage(err.message,true);
@@ -1595,11 +1596,13 @@ function publicBookingSummary(){
 }
 
 async function refreshPublicAvailability(){
-  const time=$("publicPortalTime");
+  const timeInput=$("publicPortalTime");
   const summary=$("publicPortalSummary");
-  if(!time||!summary)return;
+  const calendar=$("publicPortalCalendar");
+  const timeButtons=$("publicPortalTimeButtons");
+  const nextBox=$("publicPortalNextAvailable");
+  if(!timeInput||!summary||!calendar||!timeButtons||!nextBox)return;
 
-  const date=$("publicPortalDate").value;
   const booking=publicBookingSummary();
 
   summary.classList.toggle("hidden",!booking.selected.length);
@@ -1610,27 +1613,155 @@ async function refreshPublicAvailability(){
       ${booking.selected.some(s=>s.priceFrom)?'<p class="price-warning">El precio final puede variar según el diseño, largo, material o trabajo adicional. Consulta tu diseño con ArtBeauty.</p>':""}`;
   }
 
-  if(!date||!booking.selected.length){
-    time.disabled=true;
-    time.innerHTML='<option value="">Primero selecciona servicio y fecha</option>';
+  if(!booking.selected.length){
+    state.portalAvailability=[];
+    $("publicPortalDate").value="";
+    timeInput.value="";
+    calendar.innerHTML='<div class="empty">Selecciona un servicio para ver los días disponibles.</div>';
+    timeButtons.innerHTML='<div class="empty">Primero selecciona un servicio.</div>';
+    nextBox.innerHTML='<div class="empty">Selecciona un servicio para consultar.</div>';
+    $("publicPortalSelectedDate").textContent="Selecciona un día disponible";
     return;
   }
 
-  time.disabled=true;
-  time.innerHTML='<option value="">Consultando horarios…</option>';
+  calendar.innerHTML='<div class="empty">Consultando calendario…</div>';
+  timeButtons.innerHTML='<div class="empty">Consultando horarios…</div>';
+  nextBox.innerHTML='<div class="empty">Buscando próximos espacios…</div>';
 
   try{
-    const result=await api("getDisponibilidadPortal",{fecha:date,duracion:booking.duration});
-    const slots=result?.horarios||[];
-    time.innerHTML=slots.length
-      ? '<option value="">Selecciona una hora</option>'+slots.map(slot=>`<option value="${esc(slot)}">${esc(displayTime(slot))}</option>`).join("")
-      : '<option value="">No hay horarios disponibles</option>';
-    time.disabled=!slots.length;
-    showPublicPortalMessage(slots.length?"":"No hay espacios disponibles para esa fecha.",!slots.length);
+    const result=await api("getCalendarioDisponibilidadPortal",{
+      fechaInicio:today(),
+      dias:35,
+      duracion:booking.duration
+    });
+    state.portalAvailability=Array.isArray(result?.dias)?result.dias:[];
+    renderAvailabilityCalendar();
+    renderNextAvailable();
+
+    const selectedDate=$("publicPortalDate").value;
+    const selectedStillAvailable=state.portalAvailability.find(d=>d.fecha===selectedDate&&d.horarios?.length);
+    if(selectedStillAvailable){
+      renderTimeButtons(selectedStillAvailable);
+    }else{
+      const first=state.portalAvailability.find(d=>d.horarios?.length);
+      if(first){
+        selectPortalDate(first.fecha);
+      }else{
+        $("publicPortalDate").value="";
+        timeInput.value="";
+        $("publicPortalSelectedDate").textContent="No hay disponibilidad";
+        timeButtons.innerHTML='<div class="empty">No hay horarios disponibles en los próximos días.</div>';
+      }
+    }
   }catch(err){
-    time.innerHTML='<option value="">No se pudo consultar</option>';
+    calendar.innerHTML='<div class="empty">No se pudo cargar el calendario.</div>';
+    timeButtons.innerHTML='<div class="empty">No se pudieron consultar horarios.</div>';
+    nextBox.innerHTML='<div class="empty">No se pudieron consultar próximos espacios.</div>';
     showPublicPortalMessage(err.message,true);
   }
+}
+
+function portalDateLabel(dateStr, full=true){
+  const d=new Date(dateStr+"T12:00:00");
+  return new Intl.DateTimeFormat("es-MX",full
+    ?{weekday:"long",day:"numeric",month:"long"}
+    :{weekday:"short",day:"numeric",month:"short"}
+  ).format(d);
+}
+
+function renderAvailabilityCalendar(){
+  const box=$("publicPortalCalendar");
+  if(!box)return;
+  const days=state.portalAvailability||[];
+  if(!days.length){
+    box.innerHTML='<div class="empty">No hay fechas disponibles.</div>';
+    return;
+  }
+
+  const firstDate=new Date(days[0].fecha+"T12:00:00");
+  const monthLabel=new Intl.DateTimeFormat("es-MX",{month:"long",year:"numeric"}).format(firstDate);
+
+  const firstWeekday=(firstDate.getDay()+6)%7;
+  const blanks=Array.from({length:firstWeekday},()=>'<span class="calendar-blank"></span>').join("");
+
+  box.innerHTML=`<div class="calendar-title">${esc(monthLabel)}</div>
+    <div class="calendar-weekdays">
+      <span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span>
+    </div>
+    <div class="calendar-grid">
+      ${blanks}
+      ${days.map(day=>{
+        const available=Array.isArray(day.horarios)&&day.horarios.length>0;
+        const selected=$("publicPortalDate").value===day.fecha;
+        const classes=["calendar-day",available?"available":"unavailable",selected?"selected":""].filter(Boolean).join(" ");
+        return `<button type="button" class="${classes}" data-date="${esc(day.fecha)}" ${available?"":"disabled"}>
+          <strong>${Number(day.fecha.slice(-2))}</strong>
+          <small>${available?`${day.horarios.length} espacios`:"Lleno"}</small>
+        </button>`;
+      }).join("")}
+    </div>`;
+}
+
+function handleCalendarClick(e){
+  const button=e.target.closest("[data-date]");
+  if(!button||button.disabled)return;
+  selectPortalDate(button.dataset.date);
+}
+
+function selectPortalDate(dateStr){
+  const day=(state.portalAvailability||[]).find(d=>d.fecha===dateStr);
+  if(!day||!day.horarios?.length)return;
+  $("publicPortalDate").value=dateStr;
+  $("publicPortalTime").value="";
+  renderAvailabilityCalendar();
+  renderTimeButtons(day);
+}
+
+function renderTimeButtons(day){
+  $("publicPortalSelectedDate").textContent=portalDateLabel(day.fecha,true);
+  const current=$("publicPortalTime").value;
+  $("publicPortalTimeButtons").innerHTML=day.horarios.map(time=>`
+    <button type="button" class="time-option ${current===time?"selected":""}" data-time="${esc(time)}">
+      ${esc(displayTime(time))}
+    </button>`).join("");
+}
+
+function handleTimeButtonClick(e){
+  const button=e.target.closest("[data-time]");
+  if(!button)return;
+  $("publicPortalTime").value=button.dataset.time;
+  document.querySelectorAll(".time-option").forEach(b=>b.classList.toggle("selected",b===button));
+  showPublicPortalMessage("");
+}
+
+function renderNextAvailable(){
+  const box=$("publicPortalNextAvailable");
+  const options=[];
+  for(const day of state.portalAvailability||[]){
+    for(const time of day.horarios||[]){
+      options.push({fecha:day.fecha,hora:time});
+      if(options.length>=6)break;
+    }
+    if(options.length>=6)break;
+  }
+  box.innerHTML=options.length?options.map((item,index)=>`
+    <button type="button" class="next-slot" data-next-date="${esc(item.fecha)}" data-next-time="${esc(item.hora)}">
+      <span>${index===0?"Más pronto":portalDateLabel(item.fecha,false)}</span>
+      <strong>${esc(displayTime(item.hora))}</strong>
+      <small>${esc(portalDateLabel(item.fecha,false))}</small>
+    </button>`).join(""):'<div class="empty">No hay espacios próximos disponibles.</div>';
+}
+
+function handleNextAvailableClick(e){
+  const button=e.target.closest("[data-next-date]");
+  if(!button)return;
+  selectPortalDate(button.dataset.nextDate);
+  $("publicPortalTime").value=button.dataset.nextTime;
+  const target=[...document.querySelectorAll(".time-option")].find(b=>b.dataset.time===button.dataset.nextTime);
+  if(target){
+    document.querySelectorAll(".time-option").forEach(b=>b.classList.toggle("selected",b===target));
+  }
+  document.querySelector(".time-selection")?.scrollIntoView({behavior:"smooth",block:"center"});
 }
 
 async function fileToDataUrl(file){
@@ -1675,7 +1806,8 @@ async function savePublicPortalRequest(e){
       Foto:photo
     });
     e.target.reset();
-    $("publicPortalDate").value=today();
+    $("publicPortalDate").value="";
+    $("publicPortalTime").value="";
     renderPublicServices();
     await refreshPublicAvailability();
     showPublicPortalMessage("¡Solicitud enviada! ArtBeauty se comunicará contigo para confirmarla.");

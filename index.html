@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#9f1d59">
-  <title>ArtBeauty V4.2.2 · Precio final</title>
-  <link rel="stylesheet" href="styles.css?v=4.2.1">
+  <title>ArtBeauty V5 · Calendario disponible</title>
+  <link rel="stylesheet" href="styles.css?v=5.0">
 </head>
 <body>
 <div id="toast" class="toast"></div>
@@ -62,9 +62,11 @@
           <label>Correo electrónico
             <input id="publicPortalEmail" type="email" autocomplete="email" placeholder="Opcional">
           </label>
-          <label>Fecha
-            <input id="publicPortalDate" type="date" required>
-          </label>
+          <div class="calendar-field">
+            <span class="field-label">Fecha</span>
+            <input id="publicPortalDate" type="hidden" required>
+            <div id="publicPortalCalendar" class="availability-calendar"></div>
+          </div>
         </div>
 
         <fieldset class="service-picker">
@@ -76,11 +78,30 @@
 
         <div id="publicPortalSummary" class="booking-summary hidden"></div>
 
-        <label>Horario disponible
-          <select id="publicPortalTime" required disabled>
-            <option value="">Primero selecciona servicio y fecha</option>
-          </select>
-        </label>
+        <section class="time-selection">
+          <div class="time-selection-head">
+            <div>
+              <span class="field-label">Horarios disponibles</span>
+              <strong id="publicPortalSelectedDate">Selecciona un día disponible</strong>
+            </div>
+          </div>
+          <input id="publicPortalTime" type="hidden" required>
+          <div id="publicPortalTimeButtons" class="time-buttons">
+            <div class="empty">Primero selecciona un servicio.</div>
+          </div>
+        </section>
+
+        <section class="next-available-section">
+          <div class="section-mini-head">
+            <div>
+              <span class="field-label">Próximos espacios</span>
+              <strong>Opciones más rápidas</strong>
+            </div>
+          </div>
+          <div id="publicPortalNextAvailable" class="next-available-grid">
+            <div class="empty">Selecciona un servicio para consultar.</div>
+          </div>
+        </section>
 
         <label>Foto de inspiración
           <input id="publicPortalPhoto" type="file" accept="image/*">
@@ -452,7 +473,7 @@
 </div>
 
 <dialog id="modal"><form id="modalForm"><div class="modal-head"><h3 id="modalTitle"></h3><button type="button" id="modalClose" class="icon-btn">✕</button></div><div id="modalBody" class="modal-body"></div><div class="modal-actions"><button type="button" id="modalCancel" class="secondary">Cancelar</button><button type="submit" id="modalSave" class="primary">Guardar</button></div></form></dialog>
-<script src="app.js?v=4.2.2"></script>
+<script src="app.js?v=5.0"></script>
 
   <dialog id="clientProfileDialog" class="client-profile-dialog">
     <div class="client-profile-shell">
