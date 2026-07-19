@@ -274,3 +274,27 @@ body.dark .whatsapp-date{background:#173426;color:#65d899}
   .whatsapp-stats{grid-template-columns:1fr}
   .whatsapp-form footer>*{width:100%}
 }
+
+/* ArtBeauty V3.5.2 - Menú WhatsApp y acciones rápidas en Agenda */
+.appointment-actions{display:flex;gap:6px;flex-wrap:wrap;min-width:245px}
+.agenda-action{padding:7px 9px;border-radius:8px;font-size:9px;font-weight:900;white-space:nowrap}
+.agenda-action.whatsapp{background:#1fa463;color:#fff}
+.agenda-action.edit{background:#eee4e9;color:#5d3448}
+.agenda-action.confirm{background:#dcefe5;color:#176b45}
+.agenda-action.confirm:disabled{opacity:.62;cursor:default}
+
+.calendar-event{position:relative;padding-bottom:34px}
+.calendar-event-actions{position:absolute;left:6px;right:6px;bottom:5px;display:flex;gap:4px}
+.calendar-mini{width:25px;height:24px;padding:0;border-radius:7px;display:grid;place-items:center;font-size:12px;font-weight:900;box-shadow:none}
+.calendar-mini.whatsapp{background:#1fa463;color:#fff}
+.calendar-mini.edit{background:rgba(255,255,255,.82);color:#65384d}
+.calendar-mini.confirm{background:#dcefe5;color:#176b45}
+.calendar-mini:disabled{opacity:.55;cursor:default}
+body.dark .agenda-action.edit{background:#442c37;color:#f0dbe5}
+body.dark .agenda-action.confirm,body.dark .calendar-mini.confirm{background:#193e2d;color:#83d9ac}
+body.dark .calendar-mini.edit{background:#3c2932;color:#f2dce6}
+
+@media(max-width:720px){
+  .appointment-actions{min-width:0;display:grid;grid-template-columns:repeat(3,1fr)}
+  .agenda-action{padding:8px 5px}
+}

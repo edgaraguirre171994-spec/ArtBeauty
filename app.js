@@ -1,4 +1,4 @@
-console.info("ArtBeauty V3.5.1 cargado correctamente");
+console.info("ArtBeauty V3.5.2 cargado correctamente");
 const API_URL = "https://script.google.com/macros/s/AKfycbyNdSbHFgVadu08GVDlNQT5Dqat97l8pi33nVlkDBcBv1o-unYV8Gewq4Fi2NdK7ywNGw/exec";
 const state = { user:null, dashboard:null, citas:[], clientas:[], servicios:[], pagos:[], configuracion:{}, calendarView:"week", calendarDate:new Date() };
 const $ = id => document.getElementById(id);
@@ -375,7 +375,11 @@ function filteredAppointments(){
   return items;
 }
 function renderAppointmentTable(items){
-  $("appointmentsTable").innerHTML=items.length?`<table><thead><tr><th>Fecha</th><th>Hora</th><th>Clienta</th><th>Servicio</th><th>Estado</th><th>Total</th><th>Acciones</th></tr></thead><tbody>${items.map(c=>`<tr><td>${esc(dateKey(c.Fecha))}</td><td>${esc(displayTime(c.HoraInicio))}–${esc(displayTime(c.HoraFin))}</td><td><b>${esc(c.ClientaNombre)}</b></td><td>${esc(c.Servicio)}</td><td><span class="badge ${slug(c.Estado)}">${esc(c.Estado)}</span></td><td>${money(c.Total)}</td><td><button class="small-btn" onclick='editAppointment(${JSON.stringify(c.ID)})'>Editar</button></td></tr>`).join("")}</tbody></table>`:'<div class="empty">No hay citas registradas.</div>';
+  $("appointmentsTable").innerHTML=items.length?`<table><thead><tr><th>Fecha</th><th>Hora</th><th>Clienta</th><th>Servicio</th><th>Estado</th><th>Total</th><th>Acciones</th></tr></thead><tbody>${items.map(c=>`<tr><td>${esc(dateKey(c.Fecha))}</td><td>${esc(displayTime(c.HoraInicio))}–${esc(displayTime(c.HoraFin))}</td><td><b>${esc(c.ClientaNombre)}</b></td><td>${esc(c.Servicio)}</td><td><span class="badge ${slug(c.Estado)}">${esc(c.Estado)}</span></td><td>${money(c.Total)}</td><td><div class="appointment-actions">
+    <button class="agenda-action whatsapp" onclick='openWhatsAppDialog(${JSON.stringify(c.ID)})'>WhatsApp</button>
+    <button class="agenda-action edit" onclick='editAppointment(${JSON.stringify(c.ID)})'>Editar</button>
+    <button class="agenda-action confirm" ${String(c.Estado)==="Confirmada"?"disabled":""} onclick='confirmAppointment(${JSON.stringify(c.ID)})'>${String(c.Estado)==="Confirmada"?"Confirmada":"Confirmar"}</button>
+  </div></td></tr>`).join("")}</tbody></table>`:'<div class="empty">No hay citas registradas.</div>';
 }
 function dateKey(value){
   if(!value)return "";
@@ -404,10 +408,16 @@ function moveCalendar(direction){
   state.calendarDate=d;renderAppointments();
 }
 function appointmentCard(c){
+  const confirmed=String(c.Estado||"")==="Confirmada";
   return `<article class="calendar-event status-${slug(c.Estado)}" draggable="true" data-id="${esc(c.ID)}" onclick='editAppointment(${JSON.stringify(c.ID)})' ondragstart="calendarDragStart(event)">
     <strong>${esc(displayTime(c.HoraInicio))} ${esc(c.ClientaNombre||"")}</strong>
     <span>${esc(c.Servicio||"")}</span>
     <small>${esc(c.Empleada||"")} · ${esc(c.Estado||"")}</small>
+    <div class="calendar-event-actions">
+      <button type="button" class="calendar-mini whatsapp" title="Enviar WhatsApp" onclick='event.stopPropagation();openWhatsAppDialog(${JSON.stringify(c.ID)})'>💬</button>
+      <button type="button" class="calendar-mini edit" title="Editar cita" onclick='event.stopPropagation();editAppointment(${JSON.stringify(c.ID)})'>✎</button>
+      <button type="button" class="calendar-mini confirm" title="Confirmar cita" ${confirmed?"disabled":""} onclick='event.stopPropagation();confirmAppointment(${JSON.stringify(c.ID)})'>${confirmed?"✓":"○"}</button>
+    </div>
   </article>`;
 }
 function dayEvents(items,d){return items.filter(c=>dateKey(c.Fecha)===localISO(d)).sort((a,b)=>normalizeTime(a.HoraInicio).localeCompare(normalizeTime(b.HoraInicio)))}
@@ -614,6 +624,28 @@ function openAppointment(c={}){
     c.ID?"updateCita":"saveCita",c.ID||"");
 }
 window.editAppointment=id=>{const c=state.citas.find(x=>x.ID===id);if(c)openAppointment(c)};
+
+window.confirmAppointment=async id=>{
+  const cita=state.citas.find(c=>String(c.ID)===String(id));
+  if(!cita){toast("No se encontró la cita.",true);return}
+  if(String(cita.Estado)==="Confirmada"){toast("Esta cita ya está confirmada.");return}
+  loading(true);
+  try{
+    await api("updateCita",{
+      ...cita,
+      ID:cita.ID,
+      Estado:"Confirmada",
+      usuarioActual:state.user.Nombre
+    });
+    toast(`Cita de ${cita.ClientaNombre||"la clienta"} confirmada.`);
+    await loadAll();
+  }catch(err){
+    toast(err.message||"No se pudo confirmar la cita.",true);
+  }finally{
+    loading(false);
+  }
+};
+
 function openClient(c={}){openModal(c.ID?"Editar clienta":"Nueva clienta",field("Nombre","Nombre",c.Nombre||"")+field("Teléfono","Telefono",c.Telefono||"","tel")+field("Instagram","Instagram",c.Instagram||"")+field("Email","Email",c.Email||"","email")+field("Alergias","Alergias",c.Alergias||"", "text",true)+field("Colores favoritos","ColoresFavoritos",c.ColoresFavoritos||"")+field("Diseños favoritos","DisenosFavoritos",c.DisenosFavoritos||"")+field("Servicios favoritos","ServiciosFavoritos",c.ServiciosFavoritos||"", "text",true)+`<label class="wide">Notas<textarea name="Notas">${esc(c.Notas||"")}</textarea></label>`,c.ID?"updateClienta":"saveClienta",c.ID||"")}
 window.editClient=id=>{const c=state.clientas.find(x=>x.ID===id);if(c)openClient(c)};
 function openService(){openModal("Nuevo servicio",field("Servicio","Servicio")+field("Precio","Precio",0,"number",false,'step="0.01"')+field("Duración en minutos","DuracionMinutos",60,"number")+selectField("Categoría","Categoria",["Uñas","Pedicure","Cabello","Faciales","Depilación","Masajes","Combos","Otros"],"Uñas"),"saveServicio")}

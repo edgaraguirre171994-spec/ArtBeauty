@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#9f1d59">
-  <title>ArtBeauty V3.5.1 · Corrección de Ventanas</title>
-  <link rel="stylesheet" href="styles.css?v=3.5.1">
+  <title>ArtBeauty V3.5.2 · Menú WhatsApp y Acciones de Agenda</title>
+  <link rel="stylesheet" href="styles.css?v=3.5.2">
 </head>
 <body>
 <div id="toast" class="toast"></div>
@@ -44,6 +44,8 @@
       <button data-page="services">✦ <span>Servicios</span></button>
       <button data-page="payments">＄ <span>Pagos</span></button>
       <button data-page="reception">✓ <span>Recepción</span></button>
+      <button data-page="lealtad">★ <span>Puntos VIP</span></button>
+      <button data-page="mensajes">💬 <span>WhatsApp</span></button>
       <button data-page="ai">✧ <span>ArtBeauty AI</span></button>
       <button data-page="settings" class="admin-nav">⚙ <span>Configuración</span></button>
     </nav>
@@ -117,7 +119,7 @@
     </section>
 
     <section id="calendar" class="page">
-      <div class="page-actions"><div><span class="version-chip">ARTBEAUTY V3</span><h3>Agenda profesional</h3><p>Vista diaria, semanal y mensual. Puedes mover citas entre días.</p></div><button id="newAppointmentBtn" class="primary">+ Nueva cita</button></div>
+      <div class="page-actions"><div><span class="version-chip">AGENDA V3.5.2</span><h3>Agenda profesional</h3><p>Vista diaria, semanal y mensual. Puedes mover citas entre días.</p></div><button id="newAppointmentBtn" class="primary">+ Nueva cita</button></div>
 
       <div class="calendar-toolbar panel">
         <div class="calendar-navigation">
@@ -262,7 +264,7 @@
 </div>
 
 <dialog id="modal"><form id="modalForm"><div class="modal-head"><h3 id="modalTitle"></h3><button type="button" id="modalClose" class="icon-btn">✕</button></div><div id="modalBody" class="modal-body"></div><div class="modal-actions"><button type="button" id="modalCancel" class="secondary">Cancelar</button><button type="submit" id="modalSave" class="primary">Guardar</button></div></form></dialog>
-<script src="app.js?v=3.5.1"></script>
+<script src="app.js?v=3.5.2"></script>
 
   <dialog id="clientProfileDialog" class="client-profile-dialog">
     <div class="client-profile-shell">
