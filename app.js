@@ -1,5 +1,5 @@
 const API_URL = "https://script.google.com/macros/s/AKfycbyNdSbHFgVadu08GVDlNQT5Dqat97l8pi33nVlkDBcBv1o-unYV8Gewq4Fi2NdK7ywNGw/exec";
-const state = { user:null, dashboard:null, citas:[], clientas:[], servicios:[], pagos:[], configuracion:{} };
+const state = { user:null, dashboard:null, citas:[], clientas:[], servicios:[], pagos:[], configuracion:{}, calendarView:"week", calendarDate:new Date() };
 const $ = id => document.getElementById(id);
 const money = n => new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(Number(n||0));
 const today = () => new Date().toISOString().slice(0,10);
@@ -42,6 +42,8 @@ function bindEvents(){
   $("newPaymentBtn").onclick=openPayment;$("quickPayment").onclick=openPayment;$("receptionPayment").onclick=openPayment;
   $("receptionCheckIn").onclick=openCheckIn;
   $("appointmentSearch").oninput=renderAppointments;$("appointmentDateFilter").onchange=renderAppointments;$("appointmentStatusFilter").onchange=renderAppointments;
+  $("calendarPrev").onclick=()=>moveCalendar(-1);$("calendarNext").onclick=()=>moveCalendar(1);$("calendarToday").onclick=()=>{state.calendarDate=new Date();renderAppointments()};
+  document.querySelectorAll("[data-calendar-view]").forEach(b=>b.onclick=()=>{state.calendarView=b.dataset.calendarView;document.querySelectorAll("[data-calendar-view]").forEach(x=>x.classList.toggle("active",x===b));renderAppointments()});
   $("clientSearch").oninput=renderClients;
   $("modalClose").onclick=closeModal;$("modalCancel").onclick=closeModal;$("modalForm").onsubmit=saveModal;
   $("aiSend").onclick=sendAI;$("aiInput").addEventListener("keydown",e=>{if(e.key==="Enter")sendAI()});
@@ -92,10 +94,100 @@ function listAppointments(items){
   return items.map(c=>`<div class="list-item"><div><strong>${esc(c.ClientaNombre)}</strong><small>${esc(c.HoraInicio)} · ${esc(c.Servicio)}</small></div><span class="badge ${slug(c.Estado)}">${esc(c.Estado)}</span></div>`).join("");
 }
 function renderAppointments(){
-  let items=[...state.citas];const q=$("appointmentSearch").value.toLowerCase(),date=$("appointmentDateFilter").value,status=$("appointmentStatusFilter").value;
-  if(q)items=items.filter(c=>`${c.ClientaNombre} ${c.Servicio}`.toLowerCase().includes(q));if(date)items=items.filter(c=>String(c.Fecha).slice(0,10)===date);if(status)items=items.filter(c=>c.Estado===status);
-  $("appointmentsTable").innerHTML=items.length?`<table><thead><tr><th>Fecha</th><th>Hora</th><th>Clienta</th><th>Servicio</th><th>Estado</th><th>Total</th><th>Acciones</th></tr></thead><tbody>${items.map(c=>`<tr><td>${esc(String(c.Fecha).slice(0,10))}</td><td>${esc(c.HoraInicio)}–${esc(c.HoraFin)}</td><td><b>${esc(c.ClientaNombre)}</b></td><td>${esc(c.Servicio)}</td><td><span class="badge ${slug(c.Estado)}">${esc(c.Estado)}</span></td><td>${money(c.Total)}</td><td><button class="small-btn" onclick='editAppointment(${JSON.stringify(c.ID)})'>Editar</button></td></tr>`).join("")}</tbody></table>`:'<div class="empty">No hay citas registradas.</div>';
+  let items=filteredAppointments();
+  const listMode=state.calendarView==="list";
+  $("professionalCalendar").classList.toggle("hidden",listMode);
+  $("appointmentsTable").classList.toggle("hidden",!listMode);
+  updateCalendarTitle();
+  if(listMode){renderAppointmentTable(items);return}
+  if(state.calendarView==="month") renderMonthCalendar(items);
+  else if(state.calendarView==="day") renderDayCalendar(items);
+  else renderWeekCalendar(items);
 }
+function filteredAppointments(){
+  let items=[...state.citas];const q=$("appointmentSearch").value.toLowerCase(),date=$("appointmentDateFilter").value,status=$("appointmentStatusFilter").value;
+  if(q)items=items.filter(c=>`${c.ClientaNombre} ${c.Servicio}`.toLowerCase().includes(q));
+  if(date)items=items.filter(c=>dateKey(c.Fecha)===date);
+  if(status)items=items.filter(c=>c.Estado===status);
+  return items;
+}
+function renderAppointmentTable(items){
+  $("appointmentsTable").innerHTML=items.length?`<table><thead><tr><th>Fecha</th><th>Hora</th><th>Clienta</th><th>Servicio</th><th>Estado</th><th>Total</th><th>Acciones</th></tr></thead><tbody>${items.map(c=>`<tr><td>${esc(dateKey(c.Fecha))}</td><td>${esc(c.HoraInicio)}–${esc(c.HoraFin)}</td><td><b>${esc(c.ClientaNombre)}</b></td><td>${esc(c.Servicio)}</td><td><span class="badge ${slug(c.Estado)}">${esc(c.Estado)}</span></td><td>${money(c.Total)}</td><td><button class="small-btn" onclick='editAppointment(${JSON.stringify(c.ID)})'>Editar</button></td></tr>`).join("")}</tbody></table>`:'<div class="empty">No hay citas registradas.</div>';
+}
+function dateKey(value){
+  if(!value)return "";
+  if(typeof value==="string" && /^\d{4}-\d{2}-\d{2}/.test(value))return value.slice(0,10);
+  const d=new Date(value);return isNaN(d)?String(value).slice(0,10):localISO(d);
+}
+function localISO(d){const x=new Date(d);return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,"0")}-${String(x.getDate()).padStart(2,"0")}`}
+function parseLocalDate(value){const [y,m,d]=dateKey(value).split("-").map(Number);return new Date(y,m-1,d)}
+function addDays(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x}
+function startOfWeek(d){const x=new Date(d),day=x.getDay();x.setDate(x.getDate()-(day===0?6:day-1));x.setHours(0,0,0,0);return x}
+function sameDate(a,b){return localISO(a)===localISO(b)}
+function formatDay(d,opts){return new Intl.DateTimeFormat("es-MX",opts).format(d)}
+function updateCalendarTitle(){
+  const d=state.calendarDate;
+  if(state.calendarView==="month")$("calendarTitle").textContent=formatDay(d,{month:"long",year:"numeric"});
+  else if(state.calendarView==="day")$("calendarTitle").textContent=formatDay(d,{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+  else if(state.calendarView==="list")$("calendarTitle").textContent="Todas las citas";
+  else{const s=startOfWeek(d),e=addDays(s,6);$("calendarTitle").textContent=`${formatDay(s,{day:"numeric",month:"short"})} – ${formatDay(e,{day:"numeric",month:"short",year:"numeric"})}`}
+}
+function moveCalendar(direction){
+  const d=new Date(state.calendarDate);
+  if(state.calendarView==="month")d.setMonth(d.getMonth()+direction);
+  else if(state.calendarView==="day")d.setDate(d.getDate()+direction);
+  else if(state.calendarView==="week")d.setDate(d.getDate()+direction*7);
+  else d.setMonth(d.getMonth()+direction);
+  state.calendarDate=d;renderAppointments();
+}
+function appointmentCard(c){
+  return `<article class="calendar-event status-${slug(c.Estado)}" draggable="true" data-id="${esc(c.ID)}" onclick='editAppointment(${JSON.stringify(c.ID)})' ondragstart="calendarDragStart(event)">
+    <strong>${esc(c.HoraInicio||"")} ${esc(c.ClientaNombre||"")}</strong>
+    <span>${esc(c.Servicio||"")}</span>
+    <small>${esc(c.Empleada||"")} · ${esc(c.Estado||"")}</small>
+  </article>`;
+}
+function dayEvents(items,d){return items.filter(c=>dateKey(c.Fecha)===localISO(d)).sort((a,b)=>String(a.HoraInicio).localeCompare(String(b.HoraInicio)))}
+function renderMonthCalendar(items){
+  const base=new Date(state.calendarDate.getFullYear(),state.calendarDate.getMonth(),1),first=startOfWeek(base);
+  const heads=["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"].map(x=>`<div class="calendar-weekday">${x}</div>`).join("");
+  let cells="";
+  for(let i=0;i<42;i++){
+    const d=addDays(first,i),events=dayEvents(items,d),outside=d.getMonth()!==base.getMonth();
+    cells+=`<div class="calendar-day ${outside?"outside":""} ${sameDate(d,new Date())?"today":""}" data-date="${localISO(d)}" ondragover="event.preventDefault()" ondrop="calendarDrop(event)" onclick="calendarEmptyClick(event)">
+      <div class="calendar-day-number">${d.getDate()}</div>
+      <div class="calendar-day-events">${events.slice(0,4).map(appointmentCard).join("")}${events.length>4?`<button class="more-events" onclick="openDayFromCalendar(event,'${localISO(d)}')">+${events.length-4} más</button>`:""}</div>
+    </div>`;
+  }
+  $("professionalCalendar").innerHTML=`<div class="month-calendar">${heads}${cells}</div>`;
+}
+function renderWeekCalendar(items){
+  const start=startOfWeek(state.calendarDate);
+  const days=Array.from({length:7},(_,i)=>addDays(start,i));
+  $("professionalCalendar").innerHTML=`<div class="week-calendar">${days.map(d=>`<div class="week-day ${sameDate(d,new Date())?"today":""}" data-date="${localISO(d)}" ondragover="event.preventDefault()" ondrop="calendarDrop(event)" onclick="calendarEmptyClick(event)">
+    <header><span>${formatDay(d,{weekday:"short"})}</span><b>${d.getDate()}</b></header>
+    <div class="week-day-body">${dayEvents(items,d).map(appointmentCard).join("")||'<span class="empty-day">Disponible</span>'}</div>
+  </div>`).join("")}</div>`;
+}
+function renderDayCalendar(items){
+  const d=new Date(state.calendarDate),events=dayEvents(items,d);
+  const hours=Array.from({length:13},(_,i)=>i+8);
+  $("professionalCalendar").innerHTML=`<div class="day-calendar" data-date="${localISO(d)}" ondragover="event.preventDefault()" ondrop="calendarDrop(event)">
+    ${hours.map(h=>{const hs=String(h).padStart(2,"0")+":00";const hourEvents=events.filter(c=>Number(String(c.HoraInicio||"0").split(":")[0])===h);return `<div class="hour-row" onclick="calendarHourClick(event,'${localISO(d)}','${hs}')"><time>${h>12?h-12:h}:00 ${h>=12?"PM":"AM"}</time><div>${hourEvents.map(appointmentCard).join("")}</div></div>`}).join("")}
+  </div>`;
+}
+window.calendarDragStart=e=>{e.dataTransfer.setData("text/plain",e.currentTarget.dataset.id);e.dataTransfer.effectAllowed="move";e.stopPropagation()};
+window.calendarDrop=async e=>{
+  e.preventDefault();e.stopPropagation();const id=e.dataTransfer.getData("text/plain"),target=e.currentTarget.closest("[data-date]");if(!id||!target)return;
+  const c=state.citas.find(x=>String(x.ID)===String(id));if(!c||dateKey(c.Fecha)===target.dataset.date)return;
+  loading(true);
+  try{await api("updateCita",{...c,Fecha:target.dataset.date,usuarioActual:state.user.Nombre});toast(`Cita movida al ${target.dataset.date}`);await loadAll()}
+  catch(err){toast(err.message,true)}finally{loading(false)}
+};
+window.calendarEmptyClick=e=>{if(e.target.closest(".calendar-event,.more-events"))return;const cell=e.currentTarget;openAppointment({Fecha:cell.dataset.date})};
+window.calendarHourClick=(e,date,hour)=>{if(e.target.closest(".calendar-event"))return;const end=String(Number(hour.slice(0,2))+1).padStart(2,"0")+":00";openAppointment({Fecha:date,HoraInicio:hour,HoraFin:end})};
+window.openDayFromCalendar=(e,date)=>{e.stopPropagation();state.calendarDate=parseLocalDate(date);state.calendarView="day";document.querySelectorAll("[data-calendar-view]").forEach(x=>x.classList.toggle("active",x.dataset.calendarView==="day"));renderAppointments()};
+
 function renderClients(){
   const q=$("clientSearch").value.toLowerCase();const items=state.clientas.filter(c=>`${c.Nombre} ${c.Telefono} ${c.Instagram}`.toLowerCase().includes(q));
   $("clientsGrid").innerHTML=items.length?items.map(c=>`<article class="client-card"><strong>${esc(c.Nombre)}</strong><p class="muted">${esc(c.Telefono||"Sin teléfono")}<br>${esc(c.Instagram||"")}</p><small>${esc(c.ServiciosFavoritos||c.Notas||"Sin notas")}</small><div class="card-actions"><button class="small-btn" onclick='editClient(${JSON.stringify(c.ID)})'>Editar</button></div></article>`).join(""):'<div class="empty">No hay clientas registradas.</div>';

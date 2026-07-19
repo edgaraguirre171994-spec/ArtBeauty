@@ -76,9 +76,32 @@
     </section>
 
     <section id="calendar" class="page">
-      <div class="page-actions"><div><h3>Agenda</h3><p>Citas sincronizadas con Google Sheets.</p></div><button id="newAppointmentBtn" class="primary">+ Nueva cita</button></div>
-      <div class="panel filters"><input id="appointmentSearch" placeholder="Buscar clienta o servicio"><input id="appointmentDateFilter" type="date"><select id="appointmentStatusFilter"><option value="">Todos los estados</option><option>Pendiente</option><option>Confirmada</option><option>En servicio</option><option>Completada</option><option>Cancelada</option><option>No se presentó</option><option>Lista de espera</option></select></div>
-      <div id="appointmentsTable" class="table-wrap"></div>
+      <div class="page-actions"><div><h3>Agenda profesional</h3><p>Vista diaria, semanal y mensual. Puedes mover citas entre días.</p></div><button id="newAppointmentBtn" class="primary">+ Nueva cita</button></div>
+
+      <div class="calendar-toolbar panel">
+        <div class="calendar-navigation">
+          <button id="calendarPrev" class="icon-btn" title="Anterior">‹</button>
+          <button id="calendarToday" class="secondary">Hoy</button>
+          <button id="calendarNext" class="icon-btn" title="Siguiente">›</button>
+          <strong id="calendarTitle"></strong>
+        </div>
+        <div class="calendar-views">
+          <button class="calendar-view-btn" data-calendar-view="day">Día</button>
+          <button class="calendar-view-btn active" data-calendar-view="week">Semana</button>
+          <button class="calendar-view-btn" data-calendar-view="month">Mes</button>
+          <button class="calendar-view-btn" data-calendar-view="list">Lista</button>
+        </div>
+      </div>
+
+      <div class="panel filters calendar-filters">
+        <input id="appointmentSearch" placeholder="Buscar clienta o servicio">
+        <input id="appointmentDateFilter" type="date">
+        <select id="appointmentStatusFilter"><option value="">Todos los estados</option><option>Pendiente</option><option>Confirmada</option><option>En servicio</option><option>Completada</option><option>Cancelada</option><option>No se presentó</option><option>Lista de espera</option></select>
+      </div>
+
+      <div id="professionalCalendar" class="professional-calendar"></div>
+      <div id="appointmentsTable" class="table-wrap hidden"></div>
+      <p class="calendar-help">Consejo: arrastra una cita hacia otro día para cambiar su fecha. Haz clic en un espacio vacío para crear una cita en ese día.</p>
     </section>
 
     <section id="clients" class="page">
