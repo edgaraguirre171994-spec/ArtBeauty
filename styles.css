@@ -148,3 +148,91 @@ body.dark .upcoming-date{background:#472537}
   .dashboard-panel{min-height:auto}.donut-wrap{grid-template-columns:1fr;justify-items:center}.bar-chart{height:220px}
 }
 @media(max-width:440px){.dashboard-stats{grid-template-columns:1fr}.dashboard-upcoming article{grid-template-columns:45px 1fr}.dashboard-upcoming .badge{grid-column:2;justify-self:start}}
+
+/* ArtBeauty 3.4 - Programa de puntos y clientas VIP */
+.loyalty-page-heading{align-items:flex-end}
+.loyalty-settings-mini{padding:12px 15px;border:1px solid var(--line);border-radius:14px;background:var(--card)}
+.loyalty-settings-mini span,.loyalty-settings-mini strong{display:block}
+.loyalty-settings-mini span{font-size:10px;color:var(--muted);margin-bottom:3px}
+.loyalty-global-stats{grid-template-columns:repeat(4,1fr);margin-bottom:16px}
+.loyalty-ranking-panel{padding:18px}
+.loyalty-search{display:grid;gap:4px;font-size:10px;color:var(--muted);font-weight:800}
+.loyalty-search input{min-width:220px}
+.loyalty-client-ranking{display:grid;gap:8px}
+.loyalty-client-row{display:grid;grid-template-columns:34px 42px minmax(150px,1fr) 120px 85px 135px auto;gap:10px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:14px;cursor:pointer;transition:.2s;background:var(--card)}
+.loyalty-client-row:hover{transform:translateY(-1px);box-shadow:var(--shadow)}
+.loyalty-rank{font-weight:900;color:var(--muted);text-align:center}
+.loyalty-client-avatar{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:#f3d7e4;color:var(--brand);font-weight:900}
+.loyalty-client-name strong,.loyalty-client-name small,.loyalty-points-cell strong,.loyalty-points-cell small{display:block}
+.loyalty-client-name small,.loyalty-points-cell small,.loyalty-next-cell{font-size:10px;color:var(--muted);margin-top:2px}
+.loyalty-level-badge{justify-self:start;padding:6px 9px;border-radius:999px;font-size:10px;font-weight:900}
+.loyalty-level-badge.regular{background:#f6e8ef;color:#925070}
+.loyalty-level-badge.frequent{background:#fff2bd;color:#7b6300}
+.loyalty-level-badge.vip{background:#f3dcff;color:#7e36a8}
+.loyalty-level-badge.premium{background:#dff4ff;color:#126f98}
+.loyalty-dialog{width:min(850px,96vw);max-height:94vh;border:0;border-radius:22px;padding:0;background:var(--card);color:var(--text)}
+.loyalty-dialog::backdrop{background:rgba(20,8,14,.76);backdrop-filter:blur(6px)}
+.loyalty-form header{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid var(--line)}
+.loyalty-form header h3{margin:4px 0 0}
+.loyalty-summary{display:grid;grid-template-columns:1.4fr repeat(3,1fr);gap:10px;padding:18px 20px}
+.loyalty-summary article{padding:14px;border:1px solid var(--line);border-radius:15px;background:rgba(247,231,239,.3)}
+.loyalty-summary article small,.loyalty-summary article strong,.loyalty-summary article span{display:block}
+.loyalty-summary article strong{font-size:20px;margin:5px 0}
+.loyalty-summary-card{display:flex;align-items:center;gap:13px}
+.loyalty-big-icon{font-size:34px}
+.loyalty-tabs{display:flex;gap:8px;padding:0 20px;border-bottom:1px solid var(--line)}
+.loyalty-tab{padding:11px 13px;border-radius:10px 10px 0 0;background:none;color:var(--muted);font-weight:900}
+.loyalty-tab.active{color:var(--brand);border-bottom:3px solid var(--brand)}
+.loyalty-panel{display:none;padding:20px}
+.loyalty-panel.active{display:block}
+.loyalty-panel footer{display:flex;justify-content:flex-end;padding-top:15px}
+.loyalty-history-list,.loyalty-rewards-list{display:grid;gap:9px;max-height:390px;overflow:auto}
+.loyalty-history-list article{display:grid;grid-template-columns:36px 1fr auto;gap:11px;align-items:center;padding:11px;border:1px solid var(--line);border-radius:13px}
+.loyalty-history-list strong,.loyalty-history-list small{display:block}
+.loyalty-history-list small{font-size:10px;color:var(--muted);margin-top:3px}
+.loyalty-history-icon{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-weight:900}
+.loyalty-history-icon.positive{background:#daf4e8;color:#14754c}
+.loyalty-history-icon.negative{background:#f8dde2;color:#a72e43}
+.positive{color:#14754c}.negative{color:#a72e43}
+.loyalty-rewards-list article{display:grid;grid-template-columns:46px 1fr auto;gap:12px;align-items:center;padding:13px;border:1px solid var(--line);border-radius:14px}
+.loyalty-rewards-list article.locked{opacity:.6}
+.reward-icon{font-size:28px;text-align:center}
+.loyalty-rewards-list strong,.loyalty-rewards-list small,.loyalty-rewards-list span{display:block}
+.loyalty-rewards-list small{font-size:10px;color:var(--muted);margin:3px 0}
+.loyalty-rewards-list span{font-size:10px;font-weight:900;color:var(--brand)}
+.client-loyalty-summary{display:grid;gap:12px}
+.loyalty-profile-card{display:grid;grid-template-columns:56px 1fr auto;align-items:center;gap:13px;padding:15px;border-radius:16px;border:1px solid var(--line);background:linear-gradient(135deg,#fff5fa,#f6e6ef)}
+.loyalty-level-icon{width:50px;height:50px;border-radius:50%;display:grid;place-items:center;background:#fff;font-size:25px;box-shadow:var(--shadow)}
+.loyalty-profile-card span,.loyalty-profile-card strong,.loyalty-profile-card small{display:block}
+.loyalty-profile-card strong{font-size:22px}
+.loyalty-profile-card small{color:var(--muted)}
+.loyalty-profile-actions{text-align:right;font-size:10px;font-weight:800}
+.loyalty-progress-label{display:flex;justify-content:space-between;gap:10px;font-size:10px;color:var(--muted);margin-bottom:6px}
+.loyalty-progress{height:10px;border-radius:999px;background:#eadce3;overflow:hidden}
+.loyalty-progress span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#cb5f91,#7b62d9)}
+body.dark .loyalty-client-avatar{background:#472537}
+body.dark .loyalty-summary article{background:#2b1b23}
+body.dark .loyalty-profile-card{background:linear-gradient(135deg,#321d28,#251820)}
+body.dark .loyalty-progress{background:#422a35}
+@media(max-width:1050px){
+  .loyalty-global-stats{grid-template-columns:repeat(2,1fr)}
+  .loyalty-client-row{grid-template-columns:30px 40px 1fr 110px 75px auto}
+  .loyalty-next-cell{display:none}
+}
+@media(max-width:760px){
+  .loyalty-page-heading{align-items:stretch}
+  .loyalty-global-stats{grid-template-columns:1fr 1fr}
+  .loyalty-search input{min-width:0;width:100%}
+  .loyalty-client-row{grid-template-columns:30px 40px 1fr auto}
+  .loyalty-level-badge,.loyalty-points-cell{grid-column:3}
+  .loyalty-client-row>button{grid-column:4;grid-row:1/3}
+  .loyalty-summary{grid-template-columns:1fr 1fr}
+  .loyalty-summary-card{grid-column:1/-1}
+}
+@media(max-width:480px){
+  .loyalty-global-stats{grid-template-columns:1fr}
+  .loyalty-summary{grid-template-columns:1fr}
+  .loyalty-summary-card{grid-column:auto}
+  .loyalty-profile-card{grid-template-columns:48px 1fr}
+  .loyalty-profile-actions{grid-column:2;text-align:left}
+}

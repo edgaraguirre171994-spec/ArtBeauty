@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#9f1d59">
-  <title>ArtBeauty V3.3 · Dashboard Pro</title>
-  <link rel="stylesheet" href="styles.css?v=3.3.0">
+  <title>ArtBeauty V3.4 · Programa de Puntos VIP</title>
+  <link rel="stylesheet" href="styles.css?v=3.4.0">
 </head>
 <body>
 <div id="toast" class="toast"></div>
@@ -187,11 +187,41 @@
         <article class="panel"><label>Tema<select id="themeSelect"><option value="light">Claro</option><option value="dark">Oscuro</option><option value="system">Automático</option></select></label><p class="muted">Los cambios del negocio se guardan en la pestaña Configuracion.</p><div class="api-status"><b>Conexión</b><span id="apiStatus">Comprobando…</span></div></article>
       </div>
     </section>
-  </main>
+  
+    <section id="lealtad" class="page">
+      <div class="page-actions loyalty-page-heading">
+        <div>
+          <span class="version-chip">PUNTOS VIP V3.4</span>
+          <h3>Programa de lealtad</h3>
+          <p>Premia a las clientas frecuentes y administra recompensas.</p>
+        </div>
+        <div class="loyalty-settings-mini">
+          <span>Regla actual</span>
+          <strong>1 punto por cada $1 registrado</strong>
+        </div>
+      </div>
+
+      <div id="loyaltyGlobalStats" class="stats-grid loyalty-global-stats"></div>
+
+      <section class="panel loyalty-ranking-panel">
+        <div class="panel-title">
+          <div>
+            <h4>Ranking de clientas</h4>
+            <p>Puntos, nivel y recompensas disponibles.</p>
+          </div>
+          <label class="loyalty-search">Buscar
+            <input id="loyaltySearchInput" placeholder="Nombre o teléfono">
+          </label>
+        </div>
+        <div id="loyaltyClientRanking" class="loyalty-client-ranking"></div>
+      </section>
+    </section>
+
+</main>
 </div>
 
 <dialog id="modal"><form id="modalForm"><div class="modal-head"><h3 id="modalTitle"></h3><button type="button" id="modalClose" class="icon-btn">✕</button></div><div id="modalBody" class="modal-body"></div><div class="modal-actions"><button type="button" id="modalCancel" class="secondary">Cancelar</button><button type="submit" id="modalSave" class="primary">Guardar</button></div></form></dialog>
-<script src="app.js?v=3.3.0"></script>
+<script src="app.js?v=3.4.0"></script>
 
   <dialog id="clientProfileDialog" class="client-profile-dialog">
     <div class="client-profile-shell">
@@ -249,6 +279,61 @@
     <button id="galleryViewerClose" class="gallery-viewer-close">×</button>
     <img id="galleryViewerImage" alt="Trabajo de uñas">
     <div id="galleryViewerCaption"></div>
+  </dialog>
+
+
+  <dialog id="loyaltyDialog" class="loyalty-dialog">
+    <form id="loyaltyForm" class="loyalty-form">
+      <header>
+        <div>
+          <span class="eyebrow">PROGRAMA VIP V3.4</span>
+          <h3 id="loyaltyDialogTitle">Puntos de la clienta</h3>
+        </div>
+        <button type="button" id="loyaltyClose" class="icon-btn">×</button>
+      </header>
+
+      <input type="hidden" id="loyaltyClientId">
+
+      <section id="loyaltySummary" class="loyalty-summary"></section>
+
+      <div class="loyalty-tabs">
+        <button type="button" class="loyalty-tab active" data-loyalty-tab="movement">Movimiento</button>
+        <button type="button" class="loyalty-tab" data-loyalty-tab="history">Historial</button>
+        <button type="button" class="loyalty-tab" data-loyalty-tab="rewards">Recompensas</button>
+      </div>
+
+      <section id="loyaltyMovementPanel" class="loyalty-panel active">
+        <div class="form-grid">
+          <label>Tipo
+            <select id="loyaltyType">
+              <option value="earn">Agregar puntos</option>
+              <option value="redeem">Canjear puntos</option>
+              <option value="adjust">Ajuste manual</option>
+            </select>
+          </label>
+          <label>Puntos
+            <input id="loyaltyPoints" type="number" min="1" step="1" required>
+          </label>
+          <label class="full">Motivo
+            <input id="loyaltyReason" placeholder="Ej. Cita completada, recompensa, corrección...">
+          </label>
+          <label class="full">Notas
+            <textarea id="loyaltyNotes" rows="3" placeholder="Información opcional"></textarea>
+          </label>
+        </div>
+        <footer>
+          <button type="submit" class="primary">Guardar movimiento</button>
+        </footer>
+      </section>
+
+      <section id="loyaltyHistoryPanel" class="loyalty-panel">
+        <div id="loyaltyHistoryList" class="loyalty-history-list"></div>
+      </section>
+
+      <section id="loyaltyRewardsPanel" class="loyalty-panel">
+        <div id="loyaltyRewardsList" class="loyalty-rewards-list"></div>
+      </section>
+    </form>
   </dialog>
 
 </body>

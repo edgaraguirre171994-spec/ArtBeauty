@@ -1,4 +1,4 @@
-console.info("ArtBeauty V3.3.0 cargado correctamente");
+console.info("ArtBeauty V3.4.0 cargado correctamente");
 const API_URL = "https://script.google.com/macros/s/AKfycbyNdSbHFgVadu08GVDlNQT5Dqat97l8pi33nVlkDBcBv1o-unYV8Gewq4Fi2NdK7ywNGw/exec";
 const state = { user:null, dashboard:null, citas:[], clientas:[], servicios:[], pagos:[], configuracion:{}, calendarView:"week", calendarDate:new Date() };
 const $ = id => document.getElementById(id);
@@ -88,6 +88,10 @@ function bindEvents(){
   $("galleryAfter").onchange=e=>previewGalleryFile(e.target.files[0],"galleryAfterPreview");
   $("galleryViewerClose").onclick=()=>$("galleryViewerDialog").close();
   $("dashboardRange").onchange=renderDashboardPro;
+  $("loyaltyClose").onclick=()=>$("loyaltyDialog").close();
+  $("loyaltyForm").onsubmit=saveLoyaltyMovement;
+  $("loyaltySearchInput").oninput=renderLoyaltyPage;
+  document.querySelectorAll(".loyalty-tab").forEach(btn=>btn.onclick=()=>switchLoyaltyTab(btn.dataset.loyaltyTab));
   $("modalClose").onclick=closeModal;$("modalCancel").onclick=closeModal;$("modalForm").onsubmit=saveModal;
   $("aiSend").onclick=sendAI;$("aiInput").addEventListener("keydown",e=>{if(e.key==="Enter")sendAI()});
   document.querySelectorAll(".quick-prompts button").forEach(b=>b.onclick=()=>{$("aiInput").value=b.textContent;sendAI()});
@@ -125,7 +129,8 @@ async function loadAll(){
     renderAll();$("apiStatus").textContent="Conectado";$("apiStatus").style.color="var(--success)";
   }catch(err){toast(err.message,true);$("apiStatus").textContent="Sin conexión";$("apiStatus").style.color="var(--danger)"}finally{loading(false)}
 }
-function renderAll(){renderDashboard();renderAppointments();renderClients();renderServices();renderPayments();renderReception();renderSettings();renderAIRecommendations()}
+function renderAll(){renderDashboard();
+  renderLoyaltyPage();renderAppointments();renderClients();renderServices();renderPayments();renderReception();renderSettings();renderAIRecommendations()}
 
 function renderDashboard(){
   renderDashboardPro();
@@ -493,6 +498,14 @@ window.openClientProfile=async id=>{
       </div>
     </section>
 
+    <section class="profile-section loyalty-profile-section">
+      <div class="profile-section-title">
+        <div><h3>Puntos y nivel VIP</h3><span>Programa de recompensas</span></div>
+        <button class="primary small-primary" onclick='openLoyaltyDialog(${JSON.stringify(c.ID)})'>Administrar puntos</button>
+      </div>
+      <div id="clientLoyaltySummary" class="client-loyalty-summary"><div class="empty">Cargando puntos...</div></div>
+    </section>
+
     <section class="profile-section">
       <div class="profile-section-title">
         <div><h3>Galería de trabajos</h3><span>Fotos antes y después</span></div>
@@ -506,6 +519,7 @@ window.openClientProfile=async id=>{
     </section>`;
   $("clientProfileDialog").showModal();
   await renderClientGallery(id);
+  await renderClientLoyalty(id);
 };
 
 function renderServices(){
@@ -710,3 +724,253 @@ window.deleteGalleryWork=async(id,clientId)=>{
   if(!confirm("¿Eliminar estas fotos del expediente?"))return;
   await galleryDelete(id);await renderClientGallery(clientId);toast("Fotos eliminadas.");
 };
+
+
+/* ===== ArtBeauty V3.4 · Programa de puntos y clientas VIP ===== */
+const LOYALTY_DB_NAME="ArtBeautyLoyalty";
+const LOYALTY_STORE="movements";
+const LOYALTY_REWARD_STORE="rewards";
+let loyaltyDBPromise=null;
+
+const DEFAULT_REWARDS=[
+  {id:"R100",name:"$5 de descuento",points:100,description:"Descuento de $5 en cualquier servicio."},
+  {id:"R250",name:"$15 de descuento",points:250,description:"Descuento de $15 en un servicio."},
+  {id:"R400",name:"Diseño sencillo gratis",points:400,description:"Diseño sencillo sin costo adicional."},
+  {id:"R600",name:"$40 de descuento",points:600,description:"Descuento de $40 en el siguiente servicio."}
+];
+
+function openLoyaltyDB(){
+  if(loyaltyDBPromise)return loyaltyDBPromise;
+  loyaltyDBPromise=new Promise((resolve,reject)=>{
+    const req=indexedDB.open(LOYALTY_DB_NAME,1);
+    req.onupgradeneeded=()=>{
+      const db=req.result;
+      if(!db.objectStoreNames.contains(LOYALTY_STORE)){
+        const store=db.createObjectStore(LOYALTY_STORE,{keyPath:"id"});
+        store.createIndex("clientId","clientId",{unique:false});
+        store.createIndex("createdAt","createdAt",{unique:false});
+      }
+    };
+    req.onsuccess=()=>resolve(req.result);
+    req.onerror=()=>reject(req.error);
+  });
+  return loyaltyDBPromise;
+}
+async function loyaltyPut(record){
+  const db=await openLoyaltyDB();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(LOYALTY_STORE,"readwrite");
+    tx.objectStore(LOYALTY_STORE).put(record);
+    tx.oncomplete=()=>resolve(record);
+    tx.onerror=()=>reject(tx.error);
+  });
+}
+async function loyaltyByClient(clientId){
+  const db=await openLoyaltyDB();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(LOYALTY_STORE,"readonly");
+    const req=tx.objectStore(LOYALTY_STORE).index("clientId").getAll(String(clientId));
+    req.onsuccess=()=>resolve((req.result||[]).sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt))));
+    req.onerror=()=>reject(req.error);
+  });
+}
+function clientPayments(clientId,clientName=""){
+  return state.pagos.filter(p=>
+    String(p.ClientaID||"")===String(clientId) ||
+    (!p.ClientaID && String(p.ClientaNombre||"").trim().toLowerCase()===String(clientName||"").trim().toLowerCase())
+  );
+}
+function automaticLoyaltyPoints(clientId,clientName=""){
+  return Math.floor(clientPayments(clientId,clientName).reduce((sum,p)=>sum+Number(p.Total||0),0));
+}
+async function loyaltySnapshot(client){
+  const movements=await loyaltyByClient(client.ID);
+  const automatic=automaticLoyaltyPoints(client.ID,client.Nombre);
+  const manual=movements.reduce((sum,m)=>sum+Number(m.delta||0),0);
+  const points=Math.max(0,automatic+manual);
+  const earned=automatic+movements.filter(m=>Number(m.delta)>0).reduce((s,m)=>s+Number(m.delta||0),0);
+  const redeemed=Math.abs(movements.filter(m=>Number(m.delta)<0).reduce((s,m)=>s+Number(m.delta||0),0));
+  return {points,automatic,manual,earned,redeemed,movements,level:loyaltyLevel(points)};
+}
+function loyaltyLevel(points){
+  if(points>=1000)return {name:"Premium",icon:"💎",className:"premium",min:1000,next:null};
+  if(points>=600)return {name:"VIP",icon:"👑",className:"vip",min:600,next:1000};
+  if(points>=250)return {name:"Frecuente",icon:"⭐",className:"frequent",min:250,next:600};
+  return {name:"Regular",icon:"🌸",className:"regular",min:0,next:250};
+}
+function availableRewards(points){
+  return DEFAULT_REWARDS.filter(r=>points>=r.points);
+}
+function nextReward(points){
+  return DEFAULT_REWARDS.find(r=>r.points>points)||null;
+}
+async function renderClientLoyalty(clientId){
+  const box=$("clientLoyaltySummary");if(!box)return;
+  const client=state.clientas.find(c=>String(c.ID)===String(clientId));if(!client)return;
+  const snap=await loyaltySnapshot(client);
+  const next=nextReward(snap.points);
+  const pct=snap.level.next?Math.min(100,((snap.points-snap.level.min)/(snap.level.next-snap.level.min))*100):100;
+  box.innerHTML=`
+    <div class="loyalty-profile-card ${snap.level.className}">
+      <div class="loyalty-level-icon">${snap.level.icon}</div>
+      <div>
+        <span>Nivel</span>
+        <strong>${snap.level.name}</strong>
+        <small>${snap.points.toLocaleString()} puntos disponibles</small>
+      </div>
+      <div class="loyalty-profile-actions">
+        <span>${availableRewards(snap.points).length} recompensa(s) disponible(s)</span>
+      </div>
+    </div>
+    <div class="loyalty-progress-wrap">
+      <div class="loyalty-progress-label">
+        <span>${next?`${next.points-snap.points} puntos para ${esc(next.name)}`:"Nivel máximo alcanzado"}</span>
+        <b>${snap.points} pts</b>
+      </div>
+      <div class="loyalty-progress"><span style="width:${pct}%"></span></div>
+    </div>`;
+}
+window.openLoyaltyDialog=async clientId=>{
+  const client=state.clientas.find(c=>String(c.ID)===String(clientId));
+  if(!client){toast("No se encontró la clienta.",true);return}
+  $("loyaltyClientId").value=clientId;
+  $("loyaltyDialogTitle").textContent=`Puntos de ${client.Nombre}`;
+  $("loyaltyPoints").value="";
+  $("loyaltyReason").value="";
+  $("loyaltyNotes").value="";
+  $("loyaltyType").value="earn";
+  await refreshLoyaltyDialog(client);
+  switchLoyaltyTab("movement");
+  $("loyaltyDialog").showModal();
+};
+function switchLoyaltyTab(tab){
+  document.querySelectorAll(".loyalty-tab").forEach(btn=>btn.classList.toggle("active",btn.dataset.loyaltyTab===tab));
+  ["movement","history","rewards"].forEach(name=>{
+    const id=`loyalty${name[0].toUpperCase()+name.slice(1)}Panel`;
+    $(id)?.classList.toggle("active",name===tab);
+  });
+}
+async function refreshLoyaltyDialog(client){
+  const snap=await loyaltySnapshot(client);
+  const next=nextReward(snap.points);
+  $("loyaltySummary").innerHTML=`
+    <article class="loyalty-summary-card ${snap.level.className}">
+      <span class="loyalty-big-icon">${snap.level.icon}</span>
+      <div><small>Nivel actual</small><strong>${snap.level.name}</strong><span>${snap.points.toLocaleString()} puntos</span></div>
+    </article>
+    <article><small>Puntos por compras</small><strong>${snap.automatic.toLocaleString()}</strong></article>
+    <article><small>Puntos usados</small><strong>${snap.redeemed.toLocaleString()}</strong></article>
+    <article><small>Siguiente premio</small><strong>${next?`${next.points} pts`:"Todos desbloqueados"}</strong></article>`;
+
+  $("loyaltyHistoryList").innerHTML=snap.movements.length?snap.movements.map(m=>`
+    <article>
+      <div class="loyalty-history-icon ${Number(m.delta)>=0?"positive":"negative"}">${Number(m.delta)>=0?"+":"−"}</div>
+      <div>
+        <strong>${esc(m.reason||"Movimiento de puntos")}</strong>
+        <small>${new Date(m.createdAt).toLocaleString("es-MX")} · ${esc(m.notes||"Sin notas")}</small>
+      </div>
+      <b class="${Number(m.delta)>=0?"positive":"negative"}">${Number(m.delta)>=0?"+":""}${Number(m.delta)} pts</b>
+    </article>`).join(""):`<div class="empty">Aún no hay movimientos manuales.</div>`;
+
+  $("loyaltyRewardsList").innerHTML=DEFAULT_REWARDS.map(r=>{
+    const unlocked=snap.points>=r.points;
+    return `<article class="${unlocked?"unlocked":"locked"}">
+      <div class="reward-icon">${unlocked?"🎁":"🔒"}</div>
+      <div><strong>${esc(r.name)}</strong><small>${esc(r.description)}</small><span>${r.points} puntos</span></div>
+      <button type="button" ${unlocked?"":"disabled"} onclick='redeemReward(${JSON.stringify(client.ID)},${JSON.stringify(r.id)})'>${unlocked?"Canjear":"Bloqueado"}</button>
+    </article>`;
+  }).join("");
+}
+async function saveLoyaltyMovement(e){
+  e.preventDefault();
+  const clientId=$("loyaltyClientId").value;
+  const client=state.clientas.find(c=>String(c.ID)===String(clientId));
+  if(!client)return;
+  const type=$("loyaltyType").value;
+  let points=Math.abs(Number($("loyaltyPoints").value||0));
+  if(!points){toast("Escribe una cantidad de puntos.",true);return}
+  const snap=await loyaltySnapshot(client);
+  let delta=points;
+  if(type==="redeem")delta=-points;
+  if(type==="adjust"){
+    const raw=Number($("loyaltyPoints").value||0);
+    delta=raw;
+  }
+  if(delta<0 && Math.abs(delta)>snap.points){toast("La clienta no tiene suficientes puntos.",true);return}
+  await loyaltyPut({
+    id:`LOY-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
+    clientId:String(clientId),
+    delta,
+    type,
+    reason:$("loyaltyReason").value.trim()||({earn:"Puntos agregados",redeem:"Canje de puntos",adjust:"Ajuste manual"}[type]),
+    notes:$("loyaltyNotes").value.trim(),
+    createdAt:new Date().toISOString()
+  });
+  $("loyaltyPoints").value="";$("loyaltyReason").value="";$("loyaltyNotes").value="";
+  await refreshLoyaltyDialog(client);
+  await renderClientLoyalty(clientId);
+  await renderLoyaltyPage();
+  toast("Movimiento de puntos guardado.");
+}
+window.redeemReward=async(clientId,rewardId)=>{
+  const client=state.clientas.find(c=>String(c.ID)===String(clientId));
+  const reward=DEFAULT_REWARDS.find(r=>r.id===rewardId);
+  if(!client||!reward)return;
+  const snap=await loyaltySnapshot(client);
+  if(snap.points<reward.points){toast("No hay suficientes puntos.",true);return}
+  if(!confirm(`¿Canjear ${reward.points} puntos por "${reward.name}"?`))return;
+  await loyaltyPut({
+    id:`LOY-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
+    clientId:String(clientId),
+    delta:-reward.points,
+    type:"reward",
+    reason:`Recompensa: ${reward.name}`,
+    notes:reward.description,
+    createdAt:new Date().toISOString()
+  });
+  await refreshLoyaltyDialog(client);
+  await renderClientLoyalty(clientId);
+  await renderLoyaltyPage();
+  toast("Recompensa canjeada.");
+};
+async function renderLoyaltyPage(){
+  if(!$("loyaltyClientRanking"))return;
+  const query=String($("loyaltySearchInput")?.value||"").trim().toLowerCase();
+  const clients=state.clientas.filter(c=>
+    !query ||
+    String(c.Nombre||"").toLowerCase().includes(query) ||
+    String(c.Telefono||"").toLowerCase().includes(query)
+  );
+  const rows=[];
+  for(const client of clients){
+    const snap=await loyaltySnapshot(client);
+    rows.push({client,snap});
+  }
+  rows.sort((a,b)=>b.snap.points-a.snap.points);
+  const totalPoints=rows.reduce((s,r)=>s+r.snap.points,0);
+  const vipCount=rows.filter(r=>["VIP","Premium"].includes(r.snap.level.name)).length;
+  const rewardCount=rows.reduce((s,r)=>s+availableRewards(r.snap.points).length,0);
+  $("loyaltyGlobalStats").innerHTML=[
+    ["Puntos activos",totalPoints.toLocaleString(),"Entre todas las clientas"],
+    ["Clientas VIP",String(vipCount),"Niveles VIP y Premium"],
+    ["Premios disponibles",String(rewardCount),"Recompensas desbloqueadas"],
+    ["Clientas registradas",String(rows.length),"Incluidas en el programa"]
+  ].map(([label,value,sub])=>`<article class="stat-card-pro"><span>${label}</span><strong>${value}</strong><small>${sub}</small></article>`).join("");
+
+  $("loyaltyClientRanking").innerHTML=rows.length?rows.map((row,i)=>{
+    const {client,snap}=row;
+    const reward=nextReward(snap.points);
+    return `<article class="loyalty-client-row" onclick='openLoyaltyDialog(${JSON.stringify(client.ID)})'>
+      <span class="loyalty-rank">${i+1}</span>
+      <div class="loyalty-client-avatar">${String(client.Nombre||"?").trim().charAt(0).toUpperCase()}</div>
+      <div class="loyalty-client-name">
+        <strong>${esc(client.Nombre||"Clienta")}</strong>
+        <small>${esc(client.Telefono||"Sin teléfono")}</small>
+      </div>
+      <span class="loyalty-level-badge ${snap.level.className}">${snap.level.icon} ${snap.level.name}</span>
+      <div class="loyalty-points-cell"><strong>${snap.points.toLocaleString()}</strong><small>puntos</small></div>
+      <div class="loyalty-next-cell">${reward?`Siguiente: ${reward.points} pts`:"Todos los premios"}</div>
+      <button type="button" class="secondary">Administrar</button>
+    </article>`;
+  }).join(""):`<div class="empty">No se encontraron clientas.</div>`;
+}
