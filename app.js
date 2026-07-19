@@ -1,4 +1,4 @@
-console.info("ArtBeauty V3.1.0 cargado correctamente");
+console.info("ArtBeauty V3.2.0 cargado correctamente");
 const API_URL = "https://script.google.com/macros/s/AKfycbyNdSbHFgVadu08GVDlNQT5Dqat97l8pi33nVlkDBcBv1o-unYV8Gewq4Fi2NdK7ywNGw/exec";
 const state = { user:null, dashboard:null, citas:[], clientas:[], servicios:[], pagos:[], configuracion:{}, calendarView:"week", calendarDate:new Date() };
 const $ = id => document.getElementById(id);
@@ -81,6 +81,12 @@ function bindEvents(){
   $("clientSearch").oninput=renderClients;
   $("profileCloseBtn").onclick=()=>$("clientProfileDialog").close();
   $("profileEditBtn").onclick=()=>{const id=$("clientProfileDialog").dataset.clientId;const c=state.clientas.find(x=>String(x.ID)===String(id));if(c){$("clientProfileDialog").close();openClient(c)}};
+  $("galleryUploadClose").onclick=closeGalleryUpload;
+  $("galleryUploadCancel").onclick=closeGalleryUpload;
+  $("galleryUploadForm").onsubmit=saveGalleryWork;
+  $("galleryBefore").onchange=e=>previewGalleryFile(e.target.files[0],"galleryBeforePreview");
+  $("galleryAfter").onchange=e=>previewGalleryFile(e.target.files[0],"galleryAfterPreview");
+  $("galleryViewerClose").onclick=()=>$("galleryViewerDialog").close();
   $("modalClose").onclick=closeModal;$("modalCancel").onclick=closeModal;$("modalForm").onsubmit=saveModal;
   $("aiSend").onclick=sendAI;$("aiInput").addEventListener("keydown",e=>{if(e.key==="Enter")sendAI()});
   document.querySelectorAll(".quick-prompts button").forEach(b=>b.onclick=()=>{$("aiInput").value=b.textContent;sendAI()});
@@ -274,7 +280,7 @@ function clientTopService(citas){
 function profileInfo(label,value){
   return `<div class="profile-info-item"><small>${esc(label)}</small><strong>${esc(value||"—")}</strong></div>`;
 }
-window.openClientProfile=id=>{
+window.openClientProfile=async id=>{
   const c=state.clientas.find(x=>String(x.ID)===String(id));if(!c)return;
   const citas=clientAppointments(c).sort((a,b)=>`${dateKey(b.Fecha)} ${normalizeTime(b.HoraInicio)}`.localeCompare(`${dateKey(a.Fecha)} ${normalizeTime(a.HoraInicio)}`));
   const pagos=clientPayments(c,citas).sort((a,b)=>dateKey(b.Fecha).localeCompare(dateKey(a.Fecha)));
@@ -329,10 +335,19 @@ window.openClientProfile=id=>{
       </div>
     </section>
 
+    <section class="profile-section">
+      <div class="profile-section-title">
+        <div><h3>Galería de trabajos</h3><span>Fotos antes y después</span></div>
+        <button class="primary small-primary" onclick='openGalleryUpload(${JSON.stringify(c.ID)})'>+ Agregar fotos</button>
+      </div>
+      <div id="clientGalleryGrid" class="client-gallery-grid"><div class="empty">Cargando galería...</div></div>
+    </section>
+
     <section class="profile-section profile-alert ${cancelled?"has-alert":""}">
       <strong>${cancelled?`${cancelled} cancelación(es) o ausencia(s) registrada(s)`:"Sin cancelaciones ni ausencias registradas"}</strong>
     </section>`;
   $("clientProfileDialog").showModal();
+  await renderClientGallery(id);
 };
 
 function renderServices(){
@@ -395,3 +410,145 @@ function sendAI(){
   setTimeout(()=>addMessage(answer,"bot"),250);
 }
 function addMessage(text,type){const box=$("aiMessages"),div=document.createElement("div");div.className="message "+type;div.textContent=text;box.appendChild(div);box.scrollTop=box.scrollHeight}
+
+
+/* ===== Galería de trabajos (IndexedDB) ===== */
+const GALLERY_DB_NAME="ArtBeautyGallery";
+const GALLERY_STORE="works";
+let galleryDBPromise=null;
+
+function openGalleryDB(){
+  if(galleryDBPromise)return galleryDBPromise;
+  galleryDBPromise=new Promise((resolve,reject)=>{
+    const req=indexedDB.open(GALLERY_DB_NAME,1);
+    req.onupgradeneeded=()=>{
+      const db=req.result;
+      if(!db.objectStoreNames.contains(GALLERY_STORE)){
+        const store=db.createObjectStore(GALLERY_STORE,{keyPath:"id"});
+        store.createIndex("clientId","clientId",{unique:false});
+      }
+    };
+    req.onsuccess=()=>resolve(req.result);
+    req.onerror=()=>reject(req.error);
+  });
+  return galleryDBPromise;
+}
+async function galleryPut(record){
+  const db=await openGalleryDB();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(GALLERY_STORE,"readwrite");
+    tx.objectStore(GALLERY_STORE).put(record);
+    tx.oncomplete=()=>resolve(record);
+    tx.onerror=()=>reject(tx.error);
+  });
+}
+async function galleryDelete(id){
+  const db=await openGalleryDB();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(GALLERY_STORE,"readwrite");
+    tx.objectStore(GALLERY_STORE).delete(id);
+    tx.oncomplete=resolve;
+    tx.onerror=()=>reject(tx.error);
+  });
+}
+async function galleryByClient(clientId){
+  const db=await openGalleryDB();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(GALLERY_STORE,"readonly");
+    const req=tx.objectStore(GALLERY_STORE).index("clientId").getAll(String(clientId));
+    req.onsuccess=()=>resolve((req.result||[]).sort((a,b)=>String(b.date).localeCompare(String(a.date))));
+    req.onerror=()=>reject(req.error);
+  });
+}
+function imageToDataURL(file,maxWidth=1200,quality=.78){
+  return new Promise((resolve,reject)=>{
+    if(!file){resolve("");return}
+    const reader=new FileReader();
+    reader.onerror=()=>reject(reader.error);
+    reader.onload=()=>{
+      const img=new Image();
+      img.onerror=()=>reject(new Error("No se pudo leer la imagen."));
+      img.onload=()=>{
+        const scale=Math.min(1,maxWidth/img.width);
+        const canvas=document.createElement("canvas");
+        canvas.width=Math.max(1,Math.round(img.width*scale));
+        canvas.height=Math.max(1,Math.round(img.height*scale));
+        canvas.getContext("2d").drawImage(img,0,0,canvas.width,canvas.height);
+        resolve(canvas.toDataURL("image/jpeg",quality));
+      };
+      img.src=reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+function previewGalleryFile(file,imgId){
+  const img=$(imgId);
+  if(!file){img.hidden=true;img.removeAttribute("src");return}
+  const url=URL.createObjectURL(file);
+  img.src=url;img.hidden=false;
+  img.onload=()=>URL.revokeObjectURL(url);
+}
+window.openGalleryUpload=clientId=>{
+  $("galleryClientId").value=clientId;
+  $("galleryDate").value=today();
+  $("galleryService").value="";
+  $("galleryNotes").value="";
+  ["galleryBefore","galleryAfter"].forEach(id=>$(id).value="");
+  ["galleryBeforePreview","galleryAfterPreview"].forEach(id=>{$(id).hidden=true;$(id).removeAttribute("src")});
+  $("galleryUploadDialog").showModal();
+};
+function closeGalleryUpload(){$("galleryUploadDialog").close()}
+async function saveGalleryWork(e){
+  e.preventDefault();
+  const beforeFile=$("galleryBefore").files[0],afterFile=$("galleryAfter").files[0];
+  if(!beforeFile&&!afterFile){toast("Agrega por lo menos una foto.",true);return}
+  loading(true);
+  try{
+    const [before,after]=await Promise.all([imageToDataURL(beforeFile),imageToDataURL(afterFile)]);
+    const record={
+      id:`WORK-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
+      clientId:String($("galleryClientId").value),
+      date:$("galleryDate").value||today(),
+      service:$("galleryService").value.trim(),
+      notes:$("galleryNotes").value.trim(),
+      before,after,
+      createdAt:new Date().toISOString()
+    };
+    await galleryPut(record);
+    closeGalleryUpload();
+    await renderClientGallery(record.clientId);
+    toast("Trabajo guardado en la galería.");
+  }catch(err){toast(err.message||"No se pudo guardar la foto.",true)}
+  finally{loading(false)}
+}
+async function renderClientGallery(clientId){
+  const grid=$("clientGalleryGrid");if(!grid)return;
+  try{
+    const works=await galleryByClient(clientId);
+    grid.innerHTML=works.length?works.map(w=>`
+      <article class="gallery-work-card">
+        <div class="gallery-pair">
+          ${w.before?`<button onclick='viewGalleryImage(${JSON.stringify(w.before)},${JSON.stringify(`Antes · ${w.date}`)})'><img src="${w.before}" alt="Antes"><span>ANTES</span></button>`:'<div class="gallery-placeholder">Sin foto antes</div>'}
+          ${w.after?`<button onclick='viewGalleryImage(${JSON.stringify(w.after)},${JSON.stringify(`Después · ${w.date}`)})'><img src="${w.after}" alt="Después"><span>DESPUÉS</span></button>`:'<div class="gallery-placeholder">Sin foto después</div>'}
+        </div>
+        <div class="gallery-work-info">
+          <div><strong>${esc(w.service||"Trabajo de uñas")}</strong><small>${esc(w.date)}</small></div>
+          ${w.notes?`<p>${esc(w.notes)}</p>`:""}
+          <button class="danger-link" onclick='deleteGalleryWork(${JSON.stringify(w.id)},${JSON.stringify(clientId)})'>Eliminar</button>
+        </div>
+      </article>`).join(""):`<div class="empty gallery-empty">
+        <strong>Aún no hay fotografías</strong>
+        <p>Agrega fotos del antes y después para crear el historial visual de esta clienta.</p>
+        <button class="primary" onclick='openGalleryUpload(${JSON.stringify(clientId)})'>Agregar primer trabajo</button>
+      </div>`;
+  }catch(err){grid.innerHTML=`<div class="empty">No se pudo abrir la galería.</div>`}
+}
+window.viewGalleryImage=(src,caption)=>{
+  $("galleryViewerImage").src=src;
+  $("galleryViewerCaption").textContent=caption||"";
+  $("galleryViewerDialog").showModal();
+};
+window.deleteGalleryWork=async(id,clientId)=>{
+  if(!confirm("¿Eliminar estas fotos del expediente?"))return;
+  await galleryDelete(id);await renderClientGallery(clientId);toast("Fotos eliminadas.");
+};

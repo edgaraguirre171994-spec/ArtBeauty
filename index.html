@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#9f1d59">
-  <title>ArtBeauty V3.1 · Expediente de Clientas</title>
-  <link rel="stylesheet" href="styles.css?v=3.1.0">
+  <title>ArtBeauty V3.2 · Galería de Trabajos</title>
+  <link rel="stylesheet" href="styles.css?v=3.2.0">
 </head>
 <body>
 <div id="toast" class="toast"></div>
@@ -105,7 +105,7 @@
     </section>
 
     <section id="clients" class="page">
-      <div class="page-actions"><div><span class="version-chip">EXPEDIENTES V3.1</span><h3>Clientas</h3><p>Perfil, contacto, preferencias, historial de citas y pagos.</p></div><button id="newClientBtn" class="primary">+ Nueva clienta</button></div>
+      <div class="page-actions"><div><span class="version-chip">GALERÍA V3.2</span><h3>Clientas</h3><p>Perfil, contacto, preferencias, historial de citas y pagos.</p></div><button id="newClientBtn" class="primary">+ Nueva clienta</button></div>
       <div class="panel filters"><input id="clientSearch" placeholder="Buscar por nombre, teléfono o Instagram"></div>
       <div id="clientsGrid" class="cards-grid"></div>
     </section>
@@ -150,7 +150,7 @@
 </div>
 
 <dialog id="modal"><form id="modalForm"><div class="modal-head"><h3 id="modalTitle"></h3><button type="button" id="modalClose" class="icon-btn">✕</button></div><div id="modalBody" class="modal-body"></div><div class="modal-actions"><button type="button" id="modalCancel" class="secondary">Cancelar</button><button type="submit" id="modalSave" class="primary">Guardar</button></div></form></dialog>
-<script src="app.js?v=3.1.0"></script>
+<script src="app.js?v=3.2.0"></script>
 
   <dialog id="clientProfileDialog" class="client-profile-dialog">
     <div class="client-profile-shell">
@@ -167,6 +167,47 @@
       </header>
       <div id="clientProfileBody" class="client-profile-body"></div>
     </div>
+  </dialog>
+
+
+  <dialog id="galleryUploadDialog" class="gallery-upload-dialog">
+    <form id="galleryUploadForm" class="gallery-upload-form">
+      <header>
+        <div>
+          <span class="eyebrow">NUEVO TRABAJO</span>
+          <h3>Agregar fotos al expediente</h3>
+        </div>
+        <button type="button" id="galleryUploadClose" class="icon-btn">×</button>
+      </header>
+      <input type="hidden" id="galleryClientId">
+      <div class="form-grid">
+        <label>Fecha<input id="galleryDate" type="date" required></label>
+        <label>Servicio<input id="galleryService" placeholder="Ej. Gel X, acrílico..."></label>
+        <label class="full">Notas<textarea id="galleryNotes" rows="3" placeholder="Color, diseño, productos utilizados..."></textarea></label>
+        <label class="gallery-file-box">
+          <span>Foto antes</span>
+          <input id="galleryBefore" type="file" accept="image/*" capture="environment">
+          <img id="galleryBeforePreview" alt="" hidden>
+          <small>Toca para seleccionar o tomar foto</small>
+        </label>
+        <label class="gallery-file-box">
+          <span>Foto después</span>
+          <input id="galleryAfter" type="file" accept="image/*" capture="environment">
+          <img id="galleryAfterPreview" alt="" hidden>
+          <small>Toca para seleccionar o tomar foto</small>
+        </label>
+      </div>
+      <footer>
+        <button type="button" id="galleryUploadCancel" class="secondary">Cancelar</button>
+        <button type="submit" class="primary">Guardar trabajo</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog id="galleryViewerDialog" class="gallery-viewer-dialog">
+    <button id="galleryViewerClose" class="gallery-viewer-close">×</button>
+    <img id="galleryViewerImage" alt="Trabajo de uñas">
+    <div id="galleryViewerCaption"></div>
   </dialog>
 
 </body>

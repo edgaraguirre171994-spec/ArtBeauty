@@ -70,3 +70,32 @@ body.dark .client-card-tags span{background:#472537}body.dark .profile-summary-g
   .profile-timeline article{grid-template-columns:90px 1fr}.timeline-amount{grid-column:2}
 }
 @media(max-width:480px){.profile-info-grid{grid-template-columns:1fr}.profile-summary-grid article strong{font-size:19px}}
+
+/* ArtBeauty 3.2 - Galería de trabajos */
+.small-primary{padding:8px 11px;font-size:11px}
+.profile-section-title>div span{display:block;margin-top:3px}
+.client-gallery-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.gallery-work-card{border:1px solid var(--line);border-radius:17px;overflow:hidden;background:var(--card)}
+.gallery-pair{display:grid;grid-template-columns:1fr 1fr;gap:2px;background:var(--line)}
+.gallery-pair button{position:relative;padding:0;min-height:190px;background:#eee;overflow:hidden;border-radius:0}
+.gallery-pair img{width:100%;height:190px;object-fit:cover;display:block;transition:transform .25s}
+.gallery-pair button:hover img{transform:scale(1.035)}
+.gallery-pair span{position:absolute;left:8px;bottom:8px;padding:5px 7px;border-radius:999px;background:rgba(20,10,15,.72);color:#fff;font-size:9px;font-weight:900;letter-spacing:.08em}
+.gallery-placeholder{min-height:190px;display:grid;place-items:center;background:#f2ecef;color:var(--muted);font-size:11px}
+.gallery-work-info{padding:13px}.gallery-work-info>div{display:flex;justify-content:space-between;gap:10px}.gallery-work-info small{color:var(--muted)}.gallery-work-info p{font-size:11px;color:var(--muted);margin:9px 0;white-space:pre-wrap}
+.danger-link{padding:0;background:none;color:#b53c4c;font-size:10px;font-weight:900}
+.gallery-empty{grid-column:1/-1;padding:35px}.gallery-empty strong,.gallery-empty p{display:block}.gallery-empty p{color:var(--muted);margin:7px 0 14px}
+.gallery-upload-dialog{width:min(780px,95vw);border:0;border-radius:22px;padding:0;background:var(--card);color:var(--text)}
+.gallery-upload-dialog::backdrop,.gallery-viewer-dialog::backdrop{background:rgba(20,8,14,.78);backdrop-filter:blur(6px)}
+.gallery-upload-form header,.gallery-upload-form footer{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:18px 20px;border-bottom:1px solid var(--line)}
+.gallery-upload-form header h3{margin:4px 0 0}.gallery-upload-form footer{justify-content:flex-end;border-top:1px solid var(--line);border-bottom:0}
+.gallery-upload-form .form-grid{padding:20px}
+.gallery-file-box{position:relative;min-height:220px;display:flex!important;align-items:center;justify-content:center;flex-direction:column;border:2px dashed var(--line);border-radius:17px;overflow:hidden;cursor:pointer;background:rgba(247,231,239,.32)}
+.gallery-file-box input{position:absolute;inset:0;opacity:0;cursor:pointer}.gallery-file-box>span{font-weight:900}.gallery-file-box small{color:var(--muted);margin-top:5px}
+.gallery-file-box img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.gallery-file-box:has(img:not([hidden]))>span,.gallery-file-box:has(img:not([hidden]))>small{position:relative;z-index:2;color:#fff;text-shadow:0 1px 5px #000}
+.gallery-viewer-dialog{width:min(1000px,96vw);max-height:94vh;padding:0;border:0;border-radius:18px;background:#10090d;color:#fff;overflow:hidden}
+.gallery-viewer-dialog img{display:block;width:100%;max-height:82vh;object-fit:contain}
+.gallery-viewer-close{position:absolute;right:12px;top:12px;z-index:2;width:38px;height:38px;border-radius:50%;background:rgba(0,0,0,.65);color:#fff;font-size:24px}
+#galleryViewerCaption{padding:13px 18px;text-align:center;font-weight:800}
+body.dark .gallery-placeholder{background:#25171f}
+@media(max-width:750px){.client-gallery-grid{grid-template-columns:1fr}.gallery-pair img,.gallery-placeholder,.gallery-pair button{height:165px;min-height:165px}.gallery-upload-form .form-grid{grid-template-columns:1fr}.gallery-file-box{min-height:190px}}
