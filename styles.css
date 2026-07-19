@@ -464,3 +464,6 @@ body.dark .calendar-mini.edit{background:#3c2932;color:#f2dce6}
   .public-portal-header{align-items:flex-start}.portal-fields,.service-picker-grid{grid-template-columns:1fr}
   .booking-summary{grid-template-columns:1fr}.portal-requests article{grid-template-columns:1fr}
 }
+
+.service-choice em{display:block;margin-top:5px;font-size:11px;line-height:1.35;color:var(--muted);font-style:normal;font-weight:500}
+.price-warning{grid-column:1/-1;margin:2px 0 0;padding-top:10px;border-top:1px solid rgba(0,0,0,.08);font-size:12px;line-height:1.45;color:var(--muted)}

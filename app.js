@@ -1,4 +1,4 @@
-console.info("ArtBeauty V4.2 Portal inteligente cargado correctamente");
+console.info("ArtBeauty V4.2.1 Precios desde cargado correctamente");
 const API_URL = "https://script.google.com/macros/s/AKfycbyNdSbHFgVadu08GVDlNQT5Dqat97l8pi33nVlkDBcBv1o-unYV8Gewq4Fi2NdK7ywNGw/exec";
 const state = { user:null, dashboard:null, citas:[], clientas:[], servicios:[], pagos:[], configuracion:{}, inventory:[], expenses:[], employees:[], portalRequests:[], users:[], portalData:null, calendarView:"week", calendarDate:new Date() };
 const $ = id => document.getElementById(id);
@@ -1559,9 +1559,20 @@ function renderPublicServices(){
     const name=s.Servicio||s.Nombre||"Servicio";
     const price=Number(s.Precio||0);
     const duration=Number(s.DuracionMinutos||60);
+    const isFrom=s.PrecioDesde===true||String(s.PrecioDesde).toLowerCase()==="true"||String(s.PrecioDesde).toLowerCase()==="si"||String(s.PrecioDesde).toLowerCase()==="sí";
+    const priceText=isFrom
+      ? `${money(price)} en adelante`
+      : money(price);
+    const priceNote=isFrom
+      ? "El precio puede variar según el largo, diseño o trabajo solicitado."
+      : "Precio fijo estimado.";
     return `<label class="service-choice">
-      <input type="checkbox" value="${esc(s.ID||name)}" data-name="${esc(name)}" data-price="${price}" data-duration="${duration}">
-      <span><strong>${esc(name)}</strong><small>${money(price)} · ${duration} min</small></span>
+      <input type="checkbox" value="${esc(s.ID||name)}" data-name="${esc(name)}" data-price="${price}" data-duration="${duration}" data-price-from="${isFrom}">
+      <span>
+        <strong>${esc(name)}</strong>
+        <small>${esc(priceText)} · ${duration} min</small>
+        <em>${esc(priceNote)}</em>
+      </span>
     </label>`;
   }).join(""):'<div class="empty">No hay servicios activos disponibles.</div>';
 }
@@ -1571,7 +1582,8 @@ function selectedPublicServices(){
     id:input.value,
     name:input.dataset.name,
     price:Number(input.dataset.price||0),
-    duration:Number(input.dataset.duration||60)
+    duration:Number(input.dataset.duration||60),
+    priceFrom:String(input.dataset.priceFrom)==="true"
   }));
 }
 
@@ -1594,7 +1606,8 @@ async function refreshPublicAvailability(){
   if(booking.selected.length){
     summary.innerHTML=`<div><span>Servicios</span><strong>${esc(booking.selected.map(s=>s.name).join(", "))}</strong></div>
       <div><span>Duración</span><strong>${booking.duration} min</strong></div>
-      <div><span>Total estimado</span><strong>${money(booking.total)}</strong></div>`;
+      <div><span>Total estimado</span><strong>${money(booking.total)}${booking.selected.some(s=>s.priceFrom)?" en adelante":""}</strong></div>
+      ${booking.selected.some(s=>s.priceFrom)?'<p class="price-warning">El precio final puede variar según el diseño, largo, material o trabajo adicional. Consulta tu diseño con ArtBeauty.</p>':""}`;
   }
 
   if(!date||!booking.selected.length){
