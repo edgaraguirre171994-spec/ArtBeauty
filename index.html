@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#9f1d59">
-  <title>ArtBeauty V4.0.1 · Menú corregido</title>
-  <link rel="stylesheet" href="styles.css?v=4.0.1">
+  <title>ArtBeauty V4.1 · Usuarios y Seguridad</title>
+  <link rel="stylesheet" href="styles.css?v=4.1.0">
 </head>
 <body>
 <div id="toast" class="toast"></div>
@@ -52,6 +52,7 @@
       <button data-page="reports">▤ <span>Reportes</span></button>
       <button data-page="portal">◎ <span>Portal clientas</span></button>
       <button data-page="ai">✧ <span>ArtBeauty AI</span></button>
+      <button data-page="users" class="admin-nav">♟ <span>Usuarios</span></button>
       <button data-page="settings" class="admin-nav">⚙ <span>Configuración</span></button>
     </nav>
     <button id="logoutBtn" class="logout">Cerrar sesión</button>
@@ -275,6 +276,42 @@
       </div>
     </section>
 
+
+    <section id="users" class="page">
+      <div class="page-actions">
+        <div>
+          <span class="version-chip">V4.1 · SEGURIDAD</span>
+          <h3>Usuarios y contraseñas</h3>
+          <p>Crea cuentas, cambia contraseñas, asigna roles y desactiva accesos.</p>
+        </div>
+        <button id="newUserBtn" class="primary admin-only">+ Nuevo usuario</button>
+      </div>
+
+      <div id="usersStats" class="stats-grid compact"></div>
+
+      <div class="panel filters users-filters">
+        <input id="userSearch" placeholder="Buscar nombre, usuario o rol">
+        <select id="userRoleFilter">
+          <option value="">Todos los roles</option>
+          <option>Administradora</option>
+          <option>Recepción</option>
+          <option>Empleada</option>
+        </select>
+        <select id="userStatusFilter">
+          <option value="">Todos</option>
+          <option value="Activo">Activos</option>
+          <option value="Inactivo">Inactivos</option>
+        </select>
+      </div>
+
+      <div id="usersTable" class="table-wrap"></div>
+
+      <article class="panel security-note">
+        <h4>Seguridad recomendada</h4>
+        <p>Usa contraseñas de mínimo 8 caracteres y evita compartir la cuenta de administradora.</p>
+      </article>
+    </section>
+
     <section id="settings" class="page">
       <div class="page-actions"><div><h3>Configuración</h3><p>Información principal del negocio.</p></div><button id="saveSettingsBtn" class="primary admin-only">Guardar cambios</button></div>
       <div class="settings-grid">
@@ -357,7 +394,7 @@
 </div>
 
 <dialog id="modal"><form id="modalForm"><div class="modal-head"><h3 id="modalTitle"></h3><button type="button" id="modalClose" class="icon-btn">✕</button></div><div id="modalBody" class="modal-body"></div><div class="modal-actions"><button type="button" id="modalCancel" class="secondary">Cancelar</button><button type="submit" id="modalSave" class="primary">Guardar</button></div></form></dialog>
-<script src="app.js?v=4.0.1"></script>
+<script src="app.js?v=4.1.0"></script>
 
   <dialog id="clientProfileDialog" class="client-profile-dialog">
     <div class="client-profile-shell">
@@ -527,6 +564,44 @@
       <header class="modal-head"><h3 id="v4DialogTitle">Nuevo registro</h3><button type="button" id="v4DialogClose" class="icon-btn">×</button></header>
       <div id="v4DialogBody" class="modal-body"></div>
       <footer class="modal-actions"><button type="button" id="v4DialogCancel" class="secondary">Cancelar</button><button type="submit" class="primary">Guardar</button></footer>
+    </form>
+  </dialog>
+
+
+  <dialog id="userDialog" class="v4-dialog">
+    <form id="userForm">
+      <header class="modal-head">
+        <h3 id="userDialogTitle">Nuevo usuario</h3>
+        <button type="button" id="userDialogClose" class="icon-btn">×</button>
+      </header>
+      <div class="modal-body">
+        <input id="userId" type="hidden">
+        <label>Nombre completo<input id="userFullName" required></label>
+        <label>Usuario<input id="userUsername" autocomplete="off" required></label>
+        <label>Rol
+          <select id="userRole" required>
+            <option>Administradora</option>
+            <option>Recepción</option>
+            <option>Empleada</option>
+          </select>
+        </label>
+        <label>Estado
+          <select id="userStatus" required>
+            <option>Activo</option>
+            <option>Inactivo</option>
+          </select>
+        </label>
+        <label class="wide">Nueva contraseña
+          <input id="userPassword" type="password" autocomplete="new-password" minlength="6" placeholder="Déjala vacía para conservar la actual">
+        </label>
+        <label class="wide">Confirmar contraseña
+          <input id="userPasswordConfirm" type="password" autocomplete="new-password" minlength="6">
+        </label>
+      </div>
+      <footer class="modal-actions">
+        <button type="button" id="userDialogCancel" class="secondary">Cancelar</button>
+        <button type="submit" class="primary">Guardar usuario</button>
+      </footer>
     </form>
   </dialog>
 

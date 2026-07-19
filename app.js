@@ -1,6 +1,6 @@
-console.info("ArtBeauty V4.0.1 cargado correctamente");
+console.info("ArtBeauty V4.1 Usuarios y Seguridad cargado correctamente");
 const API_URL = "https://script.google.com/macros/s/AKfycbyNdSbHFgVadu08GVDlNQT5Dqat97l8pi33nVlkDBcBv1o-unYV8Gewq4Fi2NdK7ywNGw/exec";
-const state = { user:null, dashboard:null, citas:[], clientas:[], servicios:[], pagos:[], configuracion:{}, inventory:[], expenses:[], employees:[], portalRequests:[], calendarView:"week", calendarDate:new Date() };
+const state = { user:null, dashboard:null, citas:[], clientas:[], servicios:[], pagos:[], configuracion:{}, inventory:[], expenses:[], employees:[], portalRequests:[], users:[], calendarView:"week", calendarDate:new Date() };
 const $ = id => document.getElementById(id);
 const money = n => new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(Number(n||0));
 const today = () => new Date().toISOString().slice(0,10);
@@ -55,6 +55,15 @@ async function api(action,data={}){
   const result=await response.json();
   if(!result.ok) throw new Error(result.error||"Ocurrió un error");
   return result.data;
+}
+
+
+async function safeApi(action,fallback,data={}){
+  try{return await api(action,data)}
+  catch(err){
+    console.warn(`ArtBeauty: ${action} no disponible todavía.`,err);
+    return fallback;
+  }
 }
 
 document.addEventListener("DOMContentLoaded",()=>{
@@ -138,6 +147,15 @@ function bindEvents(){
   document.querySelectorAll(".quick-prompts button").forEach(b=>b.addEventListener("click",()=>{$("aiInput").value=b.textContent;sendAI()}));
 
 
+
+  click("newUserBtn",()=>openUserDialog());
+  on("userSearch","input",renderUsers);
+  on("userRoleFilter","change",renderUsers);
+  on("userStatusFilter","change",renderUsers);
+  click("userDialogClose",closeUserDialog);
+  click("userDialogCancel",closeUserDialog);
+  on("userForm","submit",saveUser);
+
   click("inventoryNewBtn",()=>openV4Dialog("inventory"));
   on("inventorySearch","input",renderInventory);
   on("inventoryFilter","change",renderInventory);
@@ -203,16 +221,16 @@ function go(page){
 async function loadAll(){
   if(!state.user)return;loading(true);
   try{
-    const [dashboard,citas,clientas,servicios,pagos,config]=await Promise.all([
-      api("getDashboard"),api("getCitas"),api("getClientas"),api("getServicios",{soloActivos:false}),api("getPagos"),api("getConfiguracion")
+    const [dashboard,citas,clientas,servicios,pagos,config,users]=await Promise.all([
+      api("getDashboard"),api("getCitas"),api("getClientas"),api("getServicios",{soloActivos:false}),api("getPagos"),api("getConfiguracion"),safeApi("getUsuarios",[])
     ]);
-    Object.assign(state,{dashboard,citas,clientas,servicios,pagos,configuracion:config}); await loadV4LocalData();
+    Object.assign(state,{dashboard,citas,clientas,servicios,pagos,configuracion:config,users:Array.isArray(users)?users:[]}); await loadV4LocalData();
     renderAll();$("apiStatus").textContent="Conectado";$("apiStatus").style.color="var(--success)";
   }catch(err){toast(err.message,true);$("apiStatus").textContent="Sin conexión";$("apiStatus").style.color="var(--danger)"}finally{loading(false)}
 }
 function renderAll(){renderDashboard();
   renderLoyaltyPage();
-  renderWhatsAppPage();renderAppointments();renderClients();renderServices();renderPayments();renderReception();renderSettings();renderAIRecommendations();renderInventory();renderFinance();renderEmployees();renderReports();renderPortal();}
+  renderWhatsAppPage();renderAppointments();renderClients();renderServices();renderPayments();renderReception();renderSettings();renderAIRecommendations();renderInventory();renderFinance();renderEmployees();renderReports();renderPortal();renderUsers();}
 
 function renderDashboard(){
   renderDashboardPro();
@@ -1509,3 +1527,103 @@ window.approvePortalRequest=async id=>{
 async function copyPortalLink(){
   try{await navigator.clipboard.writeText(location.href);toast("Enlace copiado.");}catch{toast("No se pudo copiar el enlace.",true)}
 }
+
+
+/* ===== ArtBeauty V4.1 - Usuarios y Seguridad ===== */
+function normalizeUserRow(u){
+  return {
+    ID:u.ID||u.Id||u.id||"",
+    Nombre:u.Nombre||u.nombre||u.Name||"",
+    Usuario:u.Usuario||u.usuario||u.Username||"",
+    Rol:u.Rol||u.rol||"Empleada",
+    Estado:u.Estado||u.estado||u.Activo||"Activo",
+    UltimoAcceso:u.UltimoAcceso||u.ultimoAcceso||""
+  };
+}
+function filteredUsers(){
+  const q=String($("userSearch")?.value||"").toLowerCase();
+  const role=$("userRoleFilter")?.value||"";
+  const status=$("userStatusFilter")?.value||"";
+  return state.users.map(normalizeUserRow).filter(u=>{
+    const active=String(u.Estado).toLowerCase()==="true"?"Activo":String(u.Estado);
+    return (!q||`${u.Nombre} ${u.Usuario} ${u.Rol}`.toLowerCase().includes(q))
+      &&(!role||u.Rol===role)
+      &&(!status||active===status);
+  });
+}
+function renderUsers(){
+  if(!$("usersTable"))return;
+  const rows=filteredUsers();
+  const all=state.users.map(normalizeUserRow);
+  const active=all.filter(u=>["activo","true","sí","si"].includes(String(u.Estado).toLowerCase())).length;
+  const admins=all.filter(u=>/admin/i.test(u.Rol)).length;
+  $("usersStats").innerHTML=[
+    ["Usuarios",all.length,"Cuentas registradas"],
+    ["Activos",active,"Con acceso"],
+    ["Administradoras",admins,"Control total"],
+    ["Inactivos",Math.max(all.length-active,0),"Sin acceso"]
+  ].map(([a,b,c])=>`<article><span>${a}</span><strong>${b}</strong><small>${c}</small></article>`).join("");
+
+  if(!all.length){
+    $("usersTable").innerHTML='<div class="empty"><strong>Módulo listo.</strong><br>Falta instalar el archivo de Apps Script incluido en el ZIP para cargar y administrar usuarios.</div>';
+    return;
+  }
+  $("usersTable").innerHTML=`<table><thead><tr><th>Nombre</th><th>Usuario</th><th>Rol</th><th>Estado</th><th>Último acceso</th><th>Acciones</th></tr></thead><tbody>${rows.map(u=>{
+    const status=String(u.Estado).toLowerCase()==="true"?"Activo":u.Estado;
+    return `<tr><td><b>${esc(u.Nombre)}</b></td><td>${esc(u.Usuario)}</td><td>${esc(u.Rol)}</td><td><span class="badge ${slug(status)}">${esc(status)}</span></td><td>${esc(u.UltimoAcceso||"—")}</td><td><div class="user-actions"><button class="small-btn" onclick='openUserDialog(${JSON.stringify(u.ID)})'>Editar</button><button class="small-btn password-btn" onclick='openUserDialog(${JSON.stringify(u.ID)},true)'>Contraseña</button><button class="small-btn danger" onclick='toggleUserStatus(${JSON.stringify(u.ID)})'>${status==="Activo"?"Desactivar":"Activar"}</button></div></td></tr>`;
+  }).join("")}</tbody></table>`;
+}
+window.openUserDialog=(id="",passwordOnly=false)=>{
+  const u=state.users.map(normalizeUserRow).find(x=>String(x.ID)===String(id))||{};
+  $("userDialogTitle").textContent=id?(passwordOnly?"Cambiar contraseña":"Editar usuario"):"Nuevo usuario";
+  $("userId").value=u.ID||"";
+  $("userFullName").value=u.Nombre||"";
+  $("userUsername").value=u.Usuario||"";
+  $("userRole").value=u.Rol||"Empleada";
+  $("userStatus").value=String(u.Estado).toLowerCase()==="true"?"Activo":(u.Estado||"Activo");
+  $("userPassword").value="";
+  $("userPasswordConfirm").value="";
+  ["userFullName","userUsername","userRole","userStatus"].forEach(k=>$(k).disabled=passwordOnly);
+  $("userDialog").showModal();
+  setTimeout(()=>$(passwordOnly?"userPassword":"userFullName")?.focus(),50);
+};
+function closeUserDialog(){
+  ["userFullName","userUsername","userRole","userStatus"].forEach(k=>{if($(k))$(k).disabled=false});
+  safeCloseDialog("userDialog");$("userForm")?.reset();
+}
+async function saveUser(e){
+  e.preventDefault();
+  const password=$("userPassword").value;
+  const confirmation=$("userPasswordConfirm").value;
+  if(password!==confirmation){toast("Las contraseñas no coinciden.",true);return}
+  if(password&&password.length<6){toast("La contraseña debe tener mínimo 6 caracteres.",true);return}
+  const payload={
+    ID:$("userId").value,
+    Nombre:$("userFullName").value.trim(),
+    Usuario:$("userUsername").value.trim(),
+    Rol:$("userRole").value,
+    Estado:$("userStatus").value,
+    Password:password,
+    usuarioActual:state.user?.Nombre||""
+  };
+  loading(true);
+  try{
+    await api(payload.ID?"updateUsuario":"createUsuario",payload);
+    state.users=await api("getUsuarios");
+    renderUsers();closeUserDialog();toast(payload.ID?"Usuario actualizado.":"Usuario creado.");
+  }catch(err){
+    toast(err.message||"No se pudo guardar. Instala el complemento de Apps Script incluido.",true);
+  }finally{loading(false)}
+}
+window.toggleUserStatus=async id=>{
+  const u=state.users.map(normalizeUserRow).find(x=>String(x.ID)===String(id));if(!u)return;
+  const current=String(u.Estado).toLowerCase()==="true"?"Activo":u.Estado;
+  const next=current==="Activo"?"Inactivo":"Activo";
+  if(!confirm(`${next==="Inactivo"?"Desactivar":"Activar"} a ${u.Nombre}?`))return;
+  loading(true);
+  try{
+    await api("updateUsuario",{...u,Estado:next,usuarioActual:state.user?.Nombre||""});
+    state.users=await api("getUsuarios");renderUsers();toast(`Usuario ${next.toLowerCase()}.`);
+  }catch(err){toast(err.message||"No se pudo cambiar el estado.",true)}
+  finally{loading(false)}
+};

@@ -425,3 +425,16 @@ body.dark .calendar-mini.edit{background:#3c2932;color:#f2dce6}
     box-shadow:18px 0 42px rgba(24,5,13,.35);
   }
 }
+
+/* ===== ArtBeauty V4.1 - Usuarios ===== */
+.users-filters{grid-template-columns:2fr 1fr 1fr}
+.user-actions{display:flex;gap:6px;flex-wrap:wrap;min-width:230px}
+.password-btn{background:#e9e7fb;color:#494090}
+.security-note{margin-top:18px;border-left:5px solid var(--gold)}
+.security-note h4{margin-bottom:7px}.security-note p{margin:0;color:var(--muted)}
+.badge.activo{background:#dcf7e9;color:#176b49}
+.badge.inactivo{background:#fde3e6;color:#96303e}
+@media(max-width:760px){
+  .users-filters{grid-template-columns:1fr}
+  .user-actions{min-width:0}
+}
