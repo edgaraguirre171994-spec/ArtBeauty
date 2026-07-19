@@ -1,4 +1,4 @@
-console.info("ArtBeauty V3.5.0 cargado correctamente");
+console.info("ArtBeauty V3.5.1 cargado correctamente");
 const API_URL = "https://script.google.com/macros/s/AKfycbyNdSbHFgVadu08GVDlNQT5Dqat97l8pi33nVlkDBcBv1o-unYV8Gewq4Fi2NdK7ywNGw/exec";
 const state = { user:null, dashboard:null, citas:[], clientas:[], servicios:[], pagos:[], configuracion:{}, calendarView:"week", calendarDate:new Date() };
 const $ = id => document.getElementById(id);
@@ -65,45 +65,95 @@ document.addEventListener("DOMContentLoaded",()=>{
 });
 
 function bindEvents(){
-  $("loginForm").addEventListener("submit",login);
-  $("logoutBtn").onclick=logout;$("menuBtn").onclick=()=> $("sidebar").classList.toggle("open");
-  $("refreshBtn").onclick=loadAll;
-  document.querySelectorAll("[data-page]").forEach(b=>b.onclick=()=>go(b.dataset.page));
-  document.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>go(b.dataset.go));
-  $("newAppointmentBtn").onclick=openAppointment;$("quickAppointment").onclick=openAppointment;$("receptionNewAppointment").onclick=openAppointment;
-  $("newClientBtn").onclick=openClient;$("quickClient").onclick=openClient;$("receptionNewClient").onclick=openClient;
-  $("newServiceBtn").onclick=openService;
-  $("newPaymentBtn").onclick=openPayment;$("quickPayment").onclick=openPayment;$("receptionPayment").onclick=openPayment;
-  $("receptionCheckIn").onclick=openCheckIn;
-  $("appointmentSearch").oninput=renderAppointments;$("appointmentDateFilter").onchange=renderAppointments;$("appointmentStatusFilter").onchange=renderAppointments;
-  $("calendarPrev").onclick=()=>moveCalendar(-1);$("calendarNext").onclick=()=>moveCalendar(1);$("calendarToday").onclick=()=>{state.calendarDate=new Date();renderAppointments()};
-  document.querySelectorAll("[data-calendar-view]").forEach(b=>b.onclick=()=>{state.calendarView=b.dataset.calendarView;document.querySelectorAll("[data-calendar-view]").forEach(x=>x.classList.toggle("active",x===b));renderAppointments()});
-  $("clientSearch").oninput=renderClients;
-  $("profileCloseBtn").onclick=()=>$("clientProfileDialog").close();
-  $("profileEditBtn").onclick=()=>{const id=$("clientProfileDialog").dataset.clientId;const c=state.clientas.find(x=>String(x.ID)===String(id));if(c){$("clientProfileDialog").close();openClient(c)}};
-  $("galleryUploadClose").onclick=closeGalleryUpload;
-  $("galleryUploadCancel").onclick=closeGalleryUpload;
-  $("galleryUploadForm").onsubmit=saveGalleryWork;
-  $("galleryBefore").onchange=e=>previewGalleryFile(e.target.files[0],"galleryBeforePreview");
-  $("galleryAfter").onchange=e=>previewGalleryFile(e.target.files[0],"galleryAfterPreview");
-  $("galleryViewerClose").onclick=()=>$("galleryViewerDialog").close();
-  $("dashboardRange").onchange=renderDashboardPro;
-  $("loyaltyClose").onclick=()=>$("loyaltyDialog").close();
-  $("loyaltyForm").onsubmit=saveLoyaltyMovement;
-  $("loyaltySearchInput").oninput=renderLoyaltyPage;
-  document.querySelectorAll(".loyalty-tab").forEach(btn=>btn.onclick=()=>switchLoyaltyTab(btn.dataset.loyaltyTab));
-  $("whatsappFilter").onchange=renderWhatsAppPage;
-  $("whatsappSearch").oninput=renderWhatsAppPage;
-  $("whatsappClose").onclick=()=>$("whatsappDialog").close();
-  $("whatsappTemplate").onchange=refreshWhatsAppMessage;
-  $("whatsappForm").onsubmit=openWhatsAppMessage;
-  $("whatsappCopy").onclick=copyWhatsAppMessage;
-  $("whatsappSave").onclick=saveWhatsAppStatus;
-  $("modalClose").onclick=closeModal;$("modalCancel").onclick=closeModal;$("modalForm").onsubmit=saveModal;
-  $("aiSend").onclick=sendAI;$("aiInput").addEventListener("keydown",e=>{if(e.key==="Enter")sendAI()});
-  document.querySelectorAll(".quick-prompts button").forEach(b=>b.onclick=()=>{$("aiInput").value=b.textContent;sendAI()});
-  $("themeSelect").onchange=e=>applyTheme(e.target.value);
-  $("saveSettingsBtn").onclick=saveSettings;
+  const on=(id,event,handler)=>{
+    const el=$(id);
+    if(el)el.addEventListener(event,handler);
+  };
+  const click=(id,handler)=>on(id,"click",handler);
+
+  on("loginForm","submit",login);
+  click("logoutBtn",logout);
+  click("menuBtn",()=> $("sidebar")?.classList.toggle("open"));
+  click("refreshBtn",loadAll);
+
+  document.querySelectorAll("[data-page]").forEach(b=>b.addEventListener("click",()=>go(b.dataset.page)));
+  document.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>go(b.dataset.go)));
+
+  ["newAppointmentBtn","quickAppointment","receptionNewAppointment"].forEach(id=>click(id,()=>openAppointment()));
+  ["newClientBtn","quickClient","receptionNewClient"].forEach(id=>click(id,()=>openClient()));
+  click("newServiceBtn",openService);
+  ["newPaymentBtn","quickPayment","receptionPayment"].forEach(id=>click(id,openPayment));
+  click("receptionCheckIn",openCheckIn);
+
+  on("appointmentSearch","input",renderAppointments);
+  on("appointmentDateFilter","change",renderAppointments);
+  on("appointmentStatusFilter","change",renderAppointments);
+
+  click("calendarPrev",()=>moveCalendar(-1));
+  click("calendarNext",()=>moveCalendar(1));
+  click("calendarToday",()=>{state.calendarDate=new Date();renderAppointments()});
+  document.querySelectorAll("[data-calendar-view]").forEach(b=>b.addEventListener("click",()=>{
+    state.calendarView=b.dataset.calendarView;
+    document.querySelectorAll("[data-calendar-view]").forEach(x=>x.classList.toggle("active",x===b));
+    renderAppointments();
+  }));
+
+  on("clientSearch","input",renderClients);
+  click("profileCloseBtn",()=>safeCloseDialog("clientProfileDialog"));
+  click("profileEditBtn",()=>{
+    const dialog=$("clientProfileDialog");
+    const id=dialog?.dataset.clientId;
+    const c=state.clientas.find(x=>String(x.ID)===String(id));
+    if(c){safeCloseDialog("clientProfileDialog");openClient(c)}
+  });
+
+  click("galleryUploadClose",closeGalleryUpload);
+  click("galleryUploadCancel",closeGalleryUpload);
+  on("galleryUploadForm","submit",saveGalleryWork);
+  on("galleryBefore","change",e=>previewGalleryFile(e.target.files[0],"galleryBeforePreview"));
+  on("galleryAfter","change",e=>previewGalleryFile(e.target.files[0],"galleryAfterPreview"));
+  click("galleryViewerClose",()=>safeCloseDialog("galleryViewerDialog"));
+
+  on("dashboardRange","change",renderDashboardPro);
+
+  click("loyaltyClose",()=>safeCloseDialog("loyaltyDialog"));
+  on("loyaltyForm","submit",saveLoyaltyMovement);
+  on("loyaltySearchInput","input",renderLoyaltyPage);
+  document.querySelectorAll(".loyalty-tab").forEach(btn=>btn.addEventListener("click",()=>switchLoyaltyTab(btn.dataset.loyaltyTab)));
+
+  on("whatsappFilter","change",renderWhatsAppPage);
+  on("whatsappSearch","input",renderWhatsAppPage);
+  click("whatsappClose",()=>safeCloseDialog("whatsappDialog"));
+  on("whatsappTemplate","change",refreshWhatsAppMessage);
+  on("whatsappForm","submit",openWhatsAppMessage);
+  click("whatsappCopy",copyWhatsAppMessage);
+  click("whatsappSave",saveWhatsAppStatus);
+
+  click("modalClose",closeModal);
+  click("modalCancel",closeModal);
+  on("modalForm","submit",saveModal);
+
+  click("aiSend",sendAI);
+  on("aiInput","keydown",e=>{if(e.key==="Enter")sendAI()});
+  document.querySelectorAll(".quick-prompts button").forEach(b=>b.addEventListener("click",()=>{$("aiInput").value=b.textContent;sendAI()}));
+
+  on("themeSelect","change",e=>applyTheme(e.target.value));
+  click("saveSettingsBtn",saveSettings);
+
+  // Cerrar con Escape o tocando fuera de la ventana.
+  document.querySelectorAll("dialog").forEach(dialog=>{
+    dialog.addEventListener("cancel",e=>{
+      e.preventDefault();
+      if(dialog.id==="modal")closeModal();
+      else dialog.close();
+    });
+    dialog.addEventListener("click",e=>{
+      if(e.target===dialog){
+        if(dialog.id==="modal")closeModal();
+        else dialog.close();
+      }
+    });
+  });
 }
 
 async function login(e){
@@ -542,9 +592,13 @@ function renderReception(){const items=state.citas.filter(c=>String(c.Fecha).sli
 function renderSettings(){const c=state.configuracion;$("businessName").value=c.NEGOCIO_NOMBRE||"ArtBeauty";$("businessPhone").value=c.TELEFONO||"";$("businessInstagram").value=c.INSTAGRAM||"@artbeauty.queen";$("businessAddress").value=c.DIRECCION||""}
 function renderAIRecommendations(){const d=state.dashboard||{};$("aiRecommendations").innerHTML=`<div class="list-item"><div><strong>${d.citasPendientes||0} citas pendientes</strong><small>Revisa confirmaciones.</small></div></div><div class="list-item"><div><strong>${money(d.gananciaEstimada)}</strong><small>Ganancia estimada registrada.</small></div></div>`}
 
+function safeCloseDialog(id){
+  const dialog=$(id);
+  if(dialog?.open)dialog.close();
+}
 let modalMode="",editingId="";
 function openModal(title,body,mode,id=""){modalMode=mode;editingId=id;$("modalTitle").textContent=title;$("modalBody").innerHTML=body;$("modal").showModal()}
-function closeModal(){$("modal").close();modalMode="";editingId=""}
+function closeModal(){safeCloseDialog("modal");modalMode="";editingId="";const form=$("modalForm");if(form)form.reset()}
 const field=(label,name,value="",type="text",wide=false,extra="")=>`<label class="${wide?"wide":""}">${label}<input name="${name}" type="${type}" value="${esc(value)}" ${extra}></label>`;
 function selectField(label,name,options,value="",wide=false){return `<label class="${wide?"wide":""}">${label}<select name="${name}">${options.map(o=>`<option ${String(o)===String(value)?"selected":""}>${esc(o)}</option>`).join("")}</select></label>`}
 
@@ -677,7 +731,7 @@ window.openGalleryUpload=clientId=>{
   ["galleryBeforePreview","galleryAfterPreview"].forEach(id=>{$(id).hidden=true;$(id).removeAttribute("src")});
   $("galleryUploadDialog").showModal();
 };
-function closeGalleryUpload(){$("galleryUploadDialog").close()}
+function closeGalleryUpload(){safeCloseDialog("galleryUploadDialog")}
 async function saveGalleryWork(e){
   e.preventDefault();
   const beforeFile=$("galleryBefore").files[0],afterFile=$("galleryAfter").files[0];
