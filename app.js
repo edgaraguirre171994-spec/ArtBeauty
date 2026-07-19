@@ -1,6 +1,6 @@
-console.info("ArtBeauty V4.1 Usuarios y Seguridad cargado correctamente");
+console.info("ArtBeauty V4.2 Portal inteligente cargado correctamente");
 const API_URL = "https://script.google.com/macros/s/AKfycbyNdSbHFgVadu08GVDlNQT5Dqat97l8pi33nVlkDBcBv1o-unYV8Gewq4Fi2NdK7ywNGw/exec";
-const state = { user:null, dashboard:null, citas:[], clientas:[], servicios:[], pagos:[], configuracion:{}, inventory:[], expenses:[], employees:[], portalRequests:[], users:[], calendarView:"week", calendarDate:new Date() };
+const state = { user:null, dashboard:null, citas:[], clientas:[], servicios:[], pagos:[], configuracion:{}, inventory:[], expenses:[], employees:[], portalRequests:[], users:[], portalData:null, calendarView:"week", calendarDate:new Date() };
 const $ = id => document.getElementById(id);
 const money = n => new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(Number(n||0));
 const today = () => new Date().toISOString().slice(0,10);
@@ -67,8 +67,14 @@ async function safeApi(action,fallback,data={}){
 }
 
 document.addEventListener("DOMContentLoaded",()=>{
-  $("todayText").textContent=new Intl.DateTimeFormat("es-MX",{dateStyle:"full"}).format(new Date());
+  if($("todayText"))$("todayText").textContent=new Intl.DateTimeFormat("es-MX",{dateStyle:"full"}).format(new Date());
   bindEvents(); applyTheme(localStorage.getItem("ab_theme")||"light");
+
+  if(isPublicPortalMode()){
+    startPublicPortal();
+    return;
+  }
+
   const saved=sessionStorage.getItem("ab_user");
   if(saved){try{state.user=JSON.parse(saved);showApp();loadAll();}catch{sessionStorage.removeItem("ab_user")}}
 });
@@ -172,8 +178,11 @@ function bindEvents(){
   click("reportPrintBtn",()=>window.print());
   click("reportExportBtn",exportCurrentReport);
 
-  on("portalBookingForm","submit",savePortalRequest);
   click("portalCopyLinkBtn",copyPortalLink);
+  click("portalRefreshBtn",loadPortalRequests);
+  on("publicPortalForm","submit",savePublicPortalRequest);
+  on("publicPortalDate","change",refreshPublicAvailability);
+  on("publicPortalServices","change",refreshPublicAvailability);
 
   click("v4DialogClose",closeV4Dialog);
   click("v4DialogCancel",closeV4Dialog);
@@ -225,6 +234,7 @@ async function loadAll(){
       api("getDashboard"),api("getCitas"),api("getClientas"),api("getServicios",{soloActivos:false}),api("getPagos"),api("getConfiguracion"),safeApi("getUsuarios",[])
     ]);
     Object.assign(state,{dashboard,citas,clientas,servicios,pagos,configuracion:config,users:Array.isArray(users)?users:[]}); await loadV4LocalData();
+    state.portalRequests=await safeApi("getPortalRequests",[]);
     renderAll();$("apiStatus").textContent="Conectado";$("apiStatus").style.color="var(--success)";
   }catch(err){toast(err.message,true);$("apiStatus").textContent="Sin conexión";$("apiStatus").style.color="var(--danger)"}finally{loading(false)}
 }
@@ -1349,10 +1359,10 @@ async function v4Delete(store,id){
   });
 }
 async function loadV4LocalData(){
-  const [inventory,expenses,employees,portalRequests]=await Promise.all([
-    v4GetAll("inventory"),v4GetAll("expenses"),v4GetAll("employees"),v4GetAll("portalRequests")
+  const [inventory,expenses,employees]=await Promise.all([
+    v4GetAll("inventory"),v4GetAll("expenses"),v4GetAll("employees")
   ]);
-  Object.assign(state,{inventory,expenses,employees,portalRequests});
+  Object.assign(state,{inventory,expenses,employees});
 }
 function uid(prefix){return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2,7)}`}
 function rangeFor(mode){
@@ -1506,26 +1516,215 @@ function exportCSV(name,rows){
   a.href=url;a.download=`ArtBeauty_${name}_${today()}.csv`;a.click();URL.revokeObjectURL(url);
 }
 
-function renderPortal(){
-  if(!$("portalService"))return;
-  const current=$("portalService").value;
-  $("portalService").innerHTML='<option value="">Seleccionar servicio</option>'+state.servicios.filter(s=>s.Activo!==false&&String(s.Activo).toLowerCase()!=="false").map(s=>`<option>${esc(s.Nombre)}</option>`).join("");
-  if(current)$("portalService").value=current;
-  if(!$("portalDate").value)$("portalDate").value=today();
-  $("portalRequests").innerHTML=state.portalRequests.length?state.portalRequests.sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt))).map(r=>`<article><div><strong>${esc(r.name)}</strong><small>${esc(r.phone)} · ${esc(r.service)}</small><span>${esc(r.date)} ${esc(r.time)}</span></div><span class="badge ${slug(r.status)}">${esc(r.status)}</span><div class="portal-actions"><button class="small-btn" onclick='approvePortalRequest(${JSON.stringify(r.id)})'>Crear cita</button><button class="small-btn danger" onclick='deleteV4Record("portalRequests",${JSON.stringify(r.id)})'>Eliminar</button></div></article>`).join(""):'<div class="empty">No hay solicitudes pendientes.</div>';
+
+function portalPublicUrl(){
+  const url=new URL(location.href);
+  url.search="";
+  url.hash="";
+  url.searchParams.set("portal","clientas");
+  return url.toString();
 }
-async function savePortalRequest(e){
+
+function isPublicPortalMode(){
+  return new URLSearchParams(location.search).get("portal")==="clientas";
+}
+
+async function startPublicPortal(){
+  $("loginView")?.classList.add("hidden");
+  $("appView")?.classList.add("hidden");
+  $("publicPortalView")?.classList.remove("hidden");
+  loading(true);
+  try{
+    state.portalData=await api("getPortalData");
+    renderPublicServices();
+    const date=$("publicPortalDate");
+    date.min=today();
+    date.value=today();
+    await refreshPublicAvailability();
+  }catch(err){
+    showPublicPortalMessage(err.message,true);
+  }finally{loading(false)}
+}
+
+function activePortalServices(){
+  const data=state.portalData?.servicios||state.servicios||[];
+  return data.filter(s=>s.Activo!==false&&String(s.Activo).toLowerCase()!=="false");
+}
+
+function renderPublicServices(){
+  const box=$("publicPortalServices");
+  if(!box)return;
+  const services=activePortalServices();
+  box.innerHTML=services.length?services.map(s=>{
+    const name=s.Servicio||s.Nombre||"Servicio";
+    const price=Number(s.Precio||0);
+    const duration=Number(s.DuracionMinutos||60);
+    return `<label class="service-choice">
+      <input type="checkbox" value="${esc(s.ID||name)}" data-name="${esc(name)}" data-price="${price}" data-duration="${duration}">
+      <span><strong>${esc(name)}</strong><small>${money(price)} · ${duration} min</small></span>
+    </label>`;
+  }).join(""):'<div class="empty">No hay servicios activos disponibles.</div>';
+}
+
+function selectedPublicServices(){
+  return [...document.querySelectorAll("#publicPortalServices input:checked")].map(input=>({
+    id:input.value,
+    name:input.dataset.name,
+    price:Number(input.dataset.price||0),
+    duration:Number(input.dataset.duration||60)
+  }));
+}
+
+function publicBookingSummary(){
+  const selected=selectedPublicServices();
+  const total=selected.reduce((sum,s)=>sum+s.price,0);
+  const duration=selected.reduce((sum,s)=>sum+s.duration,0);
+  return {selected,total,duration};
+}
+
+async function refreshPublicAvailability(){
+  const time=$("publicPortalTime");
+  const summary=$("publicPortalSummary");
+  if(!time||!summary)return;
+
+  const date=$("publicPortalDate").value;
+  const booking=publicBookingSummary();
+
+  summary.classList.toggle("hidden",!booking.selected.length);
+  if(booking.selected.length){
+    summary.innerHTML=`<div><span>Servicios</span><strong>${esc(booking.selected.map(s=>s.name).join(", "))}</strong></div>
+      <div><span>Duración</span><strong>${booking.duration} min</strong></div>
+      <div><span>Total estimado</span><strong>${money(booking.total)}</strong></div>`;
+  }
+
+  if(!date||!booking.selected.length){
+    time.disabled=true;
+    time.innerHTML='<option value="">Primero selecciona servicio y fecha</option>';
+    return;
+  }
+
+  time.disabled=true;
+  time.innerHTML='<option value="">Consultando horarios…</option>';
+
+  try{
+    const result=await api("getDisponibilidadPortal",{fecha:date,duracion:booking.duration});
+    const slots=result?.horarios||[];
+    time.innerHTML=slots.length
+      ? '<option value="">Selecciona una hora</option>'+slots.map(slot=>`<option value="${esc(slot)}">${esc(displayTime(slot))}</option>`).join("")
+      : '<option value="">No hay horarios disponibles</option>';
+    time.disabled=!slots.length;
+    showPublicPortalMessage(slots.length?"":"No hay espacios disponibles para esa fecha.",!slots.length);
+  }catch(err){
+    time.innerHTML='<option value="">No se pudo consultar</option>';
+    showPublicPortalMessage(err.message,true);
+  }
+}
+
+async function fileToDataUrl(file){
+  if(!file)return "";
+  if(file.size>2_500_000)throw new Error("La foto es demasiado grande. Usa una imagen menor de 2.5 MB.");
+  return await new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>resolve(String(reader.result||""));
+    reader.onerror=()=>reject(new Error("No se pudo leer la foto."));
+    reader.readAsDataURL(file);
+  });
+}
+
+function showPublicPortalMessage(message,error=false){
+  const box=$("publicPortalMessage");
+  if(!box)return;
+  box.textContent=message||"";
+  box.className="portal-message"+(message?"":" hidden")+(error?" error":" success");
+}
+
+async function savePublicPortalRequest(e){
   e.preventDefault();
-  const row={id:uid("REQ"),name:$("portalName").value.trim(),phone:$("portalPhone").value.trim(),service:$("portalService").value,date:$("portalDate").value,time:$("portalTime").value,notes:$("portalNotes").value.trim(),status:"Pendiente",createdAt:new Date().toISOString()};
-  await v4Put("portalRequests",row);await loadV4LocalData();renderPortal();e.target.reset();$("portalDate").value=today();toast("Solicitud registrada.");
+  const booking=publicBookingSummary();
+  if(!booking.selected.length){showPublicPortalMessage("Selecciona al menos un servicio.",true);return}
+  if(!$("publicPortalTime").value){showPublicPortalMessage("Selecciona un horario disponible.",true);return}
+
+  const button=$("publicPortalSubmit");
+  button.disabled=true;
+  showPublicPortalMessage("Enviando solicitud…");
+  try{
+    const photo=await fileToDataUrl($("publicPortalPhoto").files[0]);
+    const result=await api("saveSolicitudPortal",{
+      Nombre:$("publicPortalName").value.trim(),
+      Telefono:$("publicPortalPhone").value.trim(),
+      Email:$("publicPortalEmail").value.trim(),
+      Fecha:$("publicPortalDate").value,
+      HoraInicio:$("publicPortalTime").value,
+      Servicios:booking.selected.map(s=>s.name).join(" + "),
+      DuracionMinutos:booking.duration,
+      PrecioTotal:booking.total,
+      Notas:$("publicPortalNotes").value.trim(),
+      Foto:photo
+    });
+    e.target.reset();
+    $("publicPortalDate").value=today();
+    renderPublicServices();
+    await refreshPublicAvailability();
+    showPublicPortalMessage("¡Solicitud enviada! ArtBeauty se comunicará contigo para confirmarla.");
+  }catch(err){
+    showPublicPortalMessage(err.message,true);
+    await refreshPublicAvailability();
+  }finally{button.disabled=false}
 }
+
+async function loadPortalRequests(){
+  state.portalRequests=await safeApi("getPortalRequests",[]);
+  renderPortal();
+}
+
+function renderPortal(){
+  if(!$("portalRequests"))return;
+  const rows=Array.isArray(state.portalRequests)?state.portalRequests:[];
+  $("portalRequests").innerHTML=rows.length?rows.map(r=>`<article>
+    <div>
+      <strong>${esc(r.ClientaNombre||r.Nombre||"Clienta")}</strong>
+      <small>${esc(r.Telefono||"")} · ${esc(r.Servicio||"")}</small>
+      <span>${esc(String(r.Fecha||"").slice(0,10))} · ${esc(displayTime(r.HoraInicio))} · ${money(r.Total||r.PrecioBase||0)}</span>
+    </div>
+    <span class="badge pendiente">Solicitud</span>
+    <div class="portal-actions">
+      <button class="small-btn" onclick='approvePortalRequest(${JSON.stringify(r.ID)})'>Aprobar</button>
+      <button class="small-btn" onclick='portalWhatsApp(${JSON.stringify(r.ID)})'>WhatsApp</button>
+      <button class="small-btn danger" onclick='rejectPortalRequest(${JSON.stringify(r.ID)})'>Eliminar</button>
+    </div>
+  </article>`).join(""):'<div class="empty">No hay solicitudes pendientes.</div>';
+}
+
 window.approvePortalRequest=async id=>{
-  const r=state.portalRequests.find(x=>x.id===id);if(!r)return;
-  const client=state.clientas.find(c=>String(c.Telefono||"").replace(/\D/g,"")===String(r.phone||"").replace(/\D/g,""));
-  go("calendar");openAppointment({ClientaID:client?.ID||"",ClientaNombre:client?.Nombre||r.name,Fecha:r.date,HoraInicio:r.time,Servicio:r.service,Notas:r.notes,Estado:"Pendiente"});
+  try{
+    await api("approvePortalRequest",{ID:id,usuarioActual:state.user?.Nombre||"Sistema"});
+    await loadAll();
+    toast("Solicitud aprobada y agregada a la agenda.");
+  }catch(err){toast(err.message,true)}
 };
+
+window.rejectPortalRequest=async id=>{
+  if(!confirm("¿Eliminar esta solicitud?"))return;
+  try{
+    await api("deleteCita",{ID:id,usuarioActual:state.user?.Nombre||"Sistema"});
+    await loadPortalRequests();
+    toast("Solicitud eliminada.");
+  }catch(err){toast(err.message,true)}
+};
+
+window.portalWhatsApp=id=>{
+  const r=state.portalRequests.find(x=>String(x.ID)===String(id));
+  if(!r)return;
+  let phone=String(r.Telefono||"").replace(/\D/g,"");
+  if(phone.length===10)phone="1"+phone;
+  const msg=`Hola ${r.ClientaNombre||""} 🌸 Recibimos tu solicitud en ArtBeauty para ${String(r.Fecha||"").slice(0,10)} a las ${displayTime(r.HoraInicio)}. Servicio: ${r.Servicio||""}.`;
+  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`,"_blank");
+};
+
 async function copyPortalLink(){
-  try{await navigator.clipboard.writeText(location.href);toast("Enlace copiado.");}catch{toast("No se pudo copiar el enlace.",true)}
+  const link=portalPublicUrl();
+  try{await navigator.clipboard.writeText(link);toast("Enlace para clientas copiado.");}
+  catch{prompt("Copia este enlace:",link)}
 }
 
 

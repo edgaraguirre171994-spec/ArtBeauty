@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#9f1d59">
-  <title>ArtBeauty V4.1 · Usuarios y Seguridad</title>
-  <link rel="stylesheet" href="styles.css?v=4.1.0">
+  <title>ArtBeauty V4.2 · Portal inteligente</title>
+  <link rel="stylesheet" href="styles.css?v=4.2">
 </head>
 <body>
 <div id="toast" class="toast"></div>
@@ -30,6 +30,70 @@
         <button class="primary full" type="submit">Entrar</button>
       </form>
       <small>La información se guarda en Google Sheets.</small>
+    </div>
+  </div>
+</section>
+
+
+<section id="publicPortalView" class="public-portal-view hidden">
+  <div class="public-portal-shell">
+    <header class="public-portal-header">
+      <div class="portal-brand public-brand">
+        <div class="logo">AB</div>
+        <div><strong>ArtBeauty</strong><span>Reserva tu cita</span></div>
+      </div>
+      <span class="pill">Reservación en línea</span>
+    </header>
+
+    <div class="public-portal-card">
+      <div class="public-intro">
+        <h1>Agenda tu cita</h1>
+        <p>Selecciona tus servicios, fecha y uno de los horarios disponibles.</p>
+      </div>
+
+      <form id="publicPortalForm" class="smart-booking-form">
+        <div class="portal-fields">
+          <label>Nombre completo
+            <input id="publicPortalName" autocomplete="name" required>
+          </label>
+          <label>Teléfono
+            <input id="publicPortalPhone" inputmode="tel" autocomplete="tel" required>
+          </label>
+          <label>Correo electrónico
+            <input id="publicPortalEmail" type="email" autocomplete="email" placeholder="Opcional">
+          </label>
+          <label>Fecha
+            <input id="publicPortalDate" type="date" required>
+          </label>
+        </div>
+
+        <fieldset class="service-picker">
+          <legend>Servicios</legend>
+          <div id="publicPortalServices" class="service-picker-grid">
+            <div class="empty">Cargando servicios…</div>
+          </div>
+        </fieldset>
+
+        <div id="publicPortalSummary" class="booking-summary hidden"></div>
+
+        <label>Horario disponible
+          <select id="publicPortalTime" required disabled>
+            <option value="">Primero selecciona servicio y fecha</option>
+          </select>
+        </label>
+
+        <label>Foto de inspiración
+          <input id="publicPortalPhoto" type="file" accept="image/*">
+          <small>Opcional. Puedes adjuntar una imagen del diseño que deseas.</small>
+        </label>
+
+        <label>Notas
+          <textarea id="publicPortalNotes" placeholder="Color, diseño, alergias o información especial"></textarea>
+        </label>
+
+        <div id="publicPortalMessage" class="portal-message hidden"></div>
+        <button id="publicPortalSubmit" class="primary full" type="submit">Enviar solicitud</button>
+      </form>
     </div>
   </div>
 </section>
@@ -245,28 +309,22 @@
     </section>
 
     <section id="portal" class="page">
-      <div class="page-actions">
-        <div><span class="version-chip">V4 · PORTAL CLIENTAS</span><h3>Solicitudes de reservación</h3><p>Formulario sencillo para capturar solicitudes desde celular o tablet.</p></div>
-        <button id="portalCopyLinkBtn" class="secondary">Copiar enlace de la app</button>
+      <div class="page-heading">
+        <div>
+          <span class="pill">V4.2 · PORTAL INTELIGENTE</span>
+          <h3>Solicitudes de reservación</h3>
+          <p>Las clientas usan un enlace público y aquí aparecen sus solicitudes.</p>
+        </div>
+        <button id="portalCopyLinkBtn" class="secondary">Copiar enlace para clientas</button>
       </div>
-      <div class="portal-grid">
-        <section class="panel portal-preview">
-          <div class="portal-brand"><div class="logo small">AB</div><div><strong>ArtBeauty</strong><span>Reserva tu cita</span></div></div>
-          <form id="portalBookingForm" class="portal-form">
-            <label>Nombre<input id="portalName" required></label>
-            <label>Teléfono<input id="portalPhone" inputmode="tel" required></label>
-            <label>Servicio<select id="portalService" required></select></label>
-            <label>Fecha preferida<input id="portalDate" type="date" required></label>
-            <label>Hora preferida<input id="portalTime" type="time" required></label>
-            <label>Notas<textarea id="portalNotes" placeholder="Diseño, color o información especial"></textarea></label>
-            <button class="primary full" type="submit">Enviar solicitud</button>
-          </form>
-        </section>
-        <section class="panel">
-          <div class="panel-title"><div><h4>Solicitudes recibidas</h4><p>Aprueba y conviértelas en citas.</p></div></div>
-          <div id="portalRequests" class="portal-requests"></div>
-        </section>
-      </div>
+
+      <article class="panel">
+        <div class="panel-head">
+          <div><h4>Solicitudes recibidas</h4><p>Aprueba, abre WhatsApp o elimina solicitudes.</p></div>
+          <button id="portalRefreshBtn" class="secondary">Actualizar</button>
+        </div>
+        <div id="portalRequests" class="portal-requests"></div>
+      </article>
     </section>
 
     <section id="ai" class="page">
@@ -394,7 +452,7 @@
 </div>
 
 <dialog id="modal"><form id="modalForm"><div class="modal-head"><h3 id="modalTitle"></h3><button type="button" id="modalClose" class="icon-btn">✕</button></div><div id="modalBody" class="modal-body"></div><div class="modal-actions"><button type="button" id="modalCancel" class="secondary">Cancelar</button><button type="submit" id="modalSave" class="primary">Guardar</button></div></form></dialog>
-<script src="app.js?v=4.1.0"></script>
+<script src="app.js?v=4.2"></script>
 
   <dialog id="clientProfileDialog" class="client-profile-dialog">
     <div class="client-profile-shell">

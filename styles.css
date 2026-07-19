@@ -438,3 +438,29 @@ body.dark .calendar-mini.edit{background:#3c2932;color:#f2dce6}
   .users-filters{grid-template-columns:1fr}
   .user-actions{min-width:0}
 }
+
+
+/* ===== ArtBeauty V4.2 · Portal inteligente ===== */
+.public-portal-view{min-height:100vh;background:linear-gradient(145deg,#fff7fb,#f8edf3);padding:28px 16px}
+.public-portal-shell{width:min(820px,100%);margin:0 auto}
+.public-portal-header{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:18px}
+.public-brand{display:flex;align-items:center;gap:12px}.public-brand strong,.public-brand span{display:block}.public-brand span{font-size:12px;color:var(--muted)}
+.public-portal-card{background:var(--card);border:1px solid var(--line);border-radius:24px;box-shadow:var(--shadow);padding:24px}
+.public-intro h1{margin:0 0 6px}.public-intro p{margin:0 0 22px;color:var(--muted)}
+.smart-booking-form{display:grid;gap:18px}.portal-fields{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.smart-booking-form label{display:grid;gap:7px;font-weight:800}.smart-booking-form label small{font-weight:400;color:var(--muted)}
+.service-picker{border:1px solid var(--line);border-radius:18px;padding:15px}.service-picker legend{padding:0 8px;font-weight:900}
+.service-picker-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.service-choice{display:flex!important;grid-template-columns:none!important;align-items:center;gap:10px!important;border:1px solid var(--line);border-radius:14px;padding:12px;cursor:pointer;background:var(--card)}
+.service-choice:has(input:checked){border-color:var(--brand);background:#fff1f7}
+.service-choice input{width:18px;height:18px}.service-choice span{display:block}.service-choice strong,.service-choice small{display:block}.service-choice small{margin-top:3px;color:var(--muted)}
+.booking-summary{display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;padding:14px;border-radius:16px;background:#fff1f7}
+.booking-summary div{display:grid;gap:4px}.booking-summary span{font-size:11px;color:var(--muted)}.booking-summary strong{font-size:13px}
+.portal-message{padding:12px 14px;border-radius:14px;background:#eaf8f0;color:#256647;font-weight:800}
+.portal-message.error{background:#fff0f1;color:#a13743}
+.portal-requests article{grid-template-columns:minmax(220px,1fr) auto auto}
+@media(max-width:680px){
+  .public-portal-view{padding:12px}.public-portal-card{padding:18px;border-radius:18px}
+  .public-portal-header{align-items:flex-start}.portal-fields,.service-picker-grid{grid-template-columns:1fr}
+  .booking-summary{grid-template-columns:1fr}.portal-requests article{grid-template-columns:1fr}
+}
