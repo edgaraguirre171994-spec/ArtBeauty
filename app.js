@@ -1,4 +1,4 @@
-console.info("ArtBeauty V3.2.0 cargado correctamente");
+console.info("ArtBeauty V3.3.0 cargado correctamente");
 const API_URL = "https://script.google.com/macros/s/AKfycbyNdSbHFgVadu08GVDlNQT5Dqat97l8pi33nVlkDBcBv1o-unYV8Gewq4Fi2NdK7ywNGw/exec";
 const state = { user:null, dashboard:null, citas:[], clientas:[], servicios:[], pagos:[], configuracion:{}, calendarView:"week", calendarDate:new Date() };
 const $ = id => document.getElementById(id);
@@ -87,6 +87,7 @@ function bindEvents(){
   $("galleryBefore").onchange=e=>previewGalleryFile(e.target.files[0],"galleryBeforePreview");
   $("galleryAfter").onchange=e=>previewGalleryFile(e.target.files[0],"galleryAfterPreview");
   $("galleryViewerClose").onclick=()=>$("galleryViewerDialog").close();
+  $("dashboardRange").onchange=renderDashboardPro;
   $("modalClose").onclick=closeModal;$("modalCancel").onclick=closeModal;$("modalForm").onsubmit=saveModal;
   $("aiSend").onclick=sendAI;$("aiInput").addEventListener("keydown",e=>{if(e.key==="Enter")sendAI()});
   document.querySelectorAll(".quick-prompts button").forEach(b=>b.onclick=()=>{$("aiInput").value=b.textContent;sendAI()});
@@ -127,9 +128,166 @@ async function loadAll(){
 function renderAll(){renderDashboard();renderAppointments();renderClients();renderServices();renderPayments();renderReception();renderSettings();renderAIRecommendations()}
 
 function renderDashboard(){
-  const d=state.dashboard||{};$("statToday").textContent=d.citasHoy||0;$("statClients").textContent=d.clientasRegistradas||0;$("statIncome").textContent=money(d.ingresosTotales);$("statProfit").textContent=money(d.gananciaEstimada);
-  $("smartGreeting").textContent=`Hola, ${state.user.Nombre} 👋`;$("smartSummary").textContent=d.citasHoy?`Tienes ${d.citasHoy} cita(s) programada(s) para hoy.`:"Hoy todavía no hay citas registradas.";
-  $("todayAppointments").innerHTML=listAppointments((d.proximasCitas||[]).slice(0,6));
+  renderDashboardPro();
+}
+function dashboardDateRange(){
+  const mode=$("dashboardRange")?.value||"month";
+  const now=new Date(),start=new Date(now),end=new Date(now);
+  start.setHours(0,0,0,0);end.setHours(23,59,59,999);
+  if(mode==="today"){}
+  else if(mode==="week"){
+    const day=start.getDay()||7;
+    start.setDate(start.getDate()-day+1);
+    end.setDate(start.getDate()+6);
+  }else if(mode==="month"){
+    start.setDate(1);
+    end.setMonth(start.getMonth()+1,0);
+  }else if(mode==="year"){
+    start.setMonth(0,1);
+    end.setMonth(11,31);
+  }else{
+    start.setFullYear(2000,0,1);
+    end.setFullYear(2100,11,31);
+  }
+  return {mode,start,end};
+}
+function inRange(value,start,end){
+  const d=parseLocalDate(dateKey(value));
+  return d>=start&&d<=end;
+}
+function dashboardPaymentsInRange(start,end){
+  return state.pagos.filter(p=>inRange(p.Fecha,start,end));
+}
+function dashboardAppointmentsInRange(start,end){
+  return state.citas.filter(c=>inRange(c.Fecha,start,end));
+}
+function renderDashboardPro(){
+  if(!$("dashboardStats"))return;
+  const {mode,start,end}=dashboardDateRange();
+  const citas=dashboardAppointmentsInRange(start,end);
+  const pagos=dashboardPaymentsInRange(start,end);
+  const total=pagos.reduce((s,p)=>s+Number(p.Total||0),0);
+  const tips=pagos.reduce((s,p)=>s+Number(p.Propina||0),0);
+  const completed=citas.filter(c=>String(c.Estado).toLowerCase()==="completada").length;
+  const cancelled=citas.filter(c=>["cancelada","no se presentó"].includes(String(c.Estado).toLowerCase())).length;
+  const uniqueClients=new Set(citas.map(c=>c.ClientaID||String(c.ClientaNombre||"").toLowerCase()).filter(Boolean)).size;
+  const avg=pagos.length?total/pagos.length:0;
+
+  $("dashboardStats").innerHTML=[
+    ["Ingresos",money(total),"Ventas registradas"],
+    ["Propinas",money(tips),"Total del periodo"],
+    ["Citas",String(citas.length),`${completed} completadas`],
+    ["Clientas",String(uniqueClients),"Atendidas en el periodo"],
+    ["Ticket promedio",money(avg),"Promedio por pago"],
+    ["Cancelaciones",String(cancelled),"Incluye ausencias"]
+  ].map(([label,value,sub])=>`<article class="stat-card-pro"><span>${label}</span><strong>${value}</strong><small>${sub}</small></article>`).join("");
+
+  renderSalesChart(pagos,mode,start,end);
+  renderStatusChart(citas);
+  renderTopServices(citas,pagos);
+  renderEmployeePerformance(citas,pagos);
+  renderTopClients(citas,pagos);
+  renderUpcomingAppointments();
+}
+function chartBuckets(mode,start,end){
+  const buckets=[];
+  const cursor=new Date(start);
+  if(mode==="today"){
+    for(let h=8;h<=20;h++)buckets.push({key:String(h),label:`${h%12||12}${h>=12?"p":"a"}`,value:0});
+  }else if(mode==="week"){
+    for(let i=0;i<7;i++){const d=addDays(start,i);buckets.push({key:localISO(d),label:formatDay(d,{weekday:"short"}),value:0})}
+  }else if(mode==="month"){
+    for(let d=1;d<=end.getDate();d++){const x=new Date(start.getFullYear(),start.getMonth(),d);buckets.push({key:localISO(x),label:String(d),value:0})}
+  }else if(mode==="year"){
+    for(let m=0;m<12;m++){const x=new Date(start.getFullYear(),m,1);buckets.push({key:`${start.getFullYear()}-${String(m+1).padStart(2,"0")}`,label:formatDay(x,{month:"short"}),value:0})}
+  }else{
+    const years=[...new Set(state.pagos.map(p=>dateKey(p.Fecha).slice(0,4)).filter(Boolean))].sort();
+    years.forEach(y=>buckets.push({key:y,label:y,value:0}));
+  }
+  return buckets;
+}
+function renderSalesChart(pagos,mode,start,end){
+  const buckets=chartBuckets(mode,start,end);
+  pagos.forEach(p=>{
+    const dk=dateKey(p.Fecha),t=normalizeTime(p.Hora||p.HoraPago||"");
+    let key=dk;
+    if(mode==="today")key=String(Number((t||"0:00").split(":")[0]));
+    else if(mode==="year")key=dk.slice(0,7);
+    else if(mode==="all")key=dk.slice(0,4);
+    const b=buckets.find(x=>x.key===key);if(b)b.value+=Number(p.Total||0);
+  });
+  const max=Math.max(...buckets.map(b=>b.value),1);
+  $("salesChartSubtitle").textContent=`${formatDay(start,{day:"numeric",month:"short",year:"numeric"})} – ${formatDay(end,{day:"numeric",month:"short",year:"numeric"})}`;
+  $("salesChart").innerHTML=buckets.length?buckets.map(b=>`<div class="bar-item" title="${b.label}: ${money(b.value)}">
+    <div class="bar-value">${b.value?money(b.value):""}</div>
+    <div class="bar-track"><div class="bar-fill" style="height:${Math.max(b.value/max*100,b.value?6:0)}%"></div></div>
+    <span>${esc(b.label)}</span>
+  </div>`).join(""):'<div class="empty">No hay información para graficar.</div>';
+}
+function renderStatusChart(citas){
+  const states={};
+  citas.forEach(c=>{const s=c.Estado||"Sin estado";states[s]=(states[s]||0)+1});
+  const entries=Object.entries(states).sort((a,b)=>b[1]-a[1]);
+  const total=Math.max(citas.length,1);
+  let offset=0;
+  const segments=entries.map(([name,count],i)=>{
+    const pct=count/total*100;
+    const start=offset;offset+=pct;
+    return `var(--chart-${(i%6)+1}) ${start}% ${offset}%`;
+  });
+  const gradient=segments.length?`conic-gradient(${segments.join(",")})`:"conic-gradient(#e9dfe4 0 100%)";
+  $("appointmentStatusChart").innerHTML=`<div class="donut-chart" style="background:${gradient}"><div><strong>${citas.length}</strong><span>Citas</span></div></div>
+    <div class="chart-legend">${entries.length?entries.map(([name,count],i)=>`<p><i style="background:var(--chart-${(i%6)+1})"></i><span>${esc(name)}</span><b>${count}</b></p>`).join(""):'<span class="empty-inline">Sin citas</span>'}</div>`;
+}
+function renderTopServices(citas,pagos){
+  const map={};
+  citas.forEach(c=>{
+    const name=c.Servicio||"Sin servicio";
+    if(!map[name])map[name]={count:0,total:0};
+    map[name].count++;
+    map[name].total+=Number(c.Total||c.PrecioBase||0);
+  });
+  const items=Object.entries(map).sort((a,b)=>b[1].count-a[1].count).slice(0,6);
+  $("topServicesList").innerHTML=items.length?items.map(([name,v],i)=>`<article><span class="rank-number">${i+1}</span><div><strong>${esc(name)}</strong><small>${v.count} cita(s)</small></div><b>${money(v.total)}</b></article>`).join(""):'<div class="empty">Sin servicios en este periodo.</div>';
+}
+function renderEmployeePerformance(citas,pagos){
+  const map={};
+  citas.forEach(c=>{
+    const name=c.Empleada||"Sin asignar";
+    if(!map[name])map[name]={citas:0,total:0};
+    map[name].citas++;
+    map[name].total+=Number(c.Total||c.PrecioBase||0);
+  });
+  const items=Object.entries(map).sort((a,b)=>b[1].total-a[1].total);
+  const max=Math.max(...items.map(x=>x[1].total),1);
+  $("employeePerformance").innerHTML=items.length?items.map(([name,v])=>`<article>
+    <div><strong>${esc(name)}</strong><small>${v.citas} cita(s) · ${money(v.total)}</small></div>
+    <div class="performance-track"><span style="width:${Math.max(v.total/max*100,5)}%"></span></div>
+  </article>`).join(""):'<div class="empty">No hay información por empleada.</div>';
+}
+function renderTopClients(citas,pagos){
+  const names={};
+  state.clientas.forEach(c=>names[String(c.ID)]=c.Nombre);
+  const byClient={};
+  pagos.forEach(p=>{
+    const key=String(p.ClientaID||p.ClientaNombre||"Sin identificar");
+    if(!byClient[key])byClient[key]={name:names[key]||p.ClientaNombre||"Clienta",total:0,count:0};
+    byClient[key].total+=Number(p.Total||0);byClient[key].count++;
+  });
+  const items=Object.values(byClient).sort((a,b)=>b.total-a.total).slice(0,6);
+  $("topClientsList").innerHTML=items.length?items.map((c,i)=>`<article><span class="rank-number">${i+1}</span><div><strong>${esc(c.name)}</strong><small>${c.count} pago(s)</small></div><b>${money(c.total)}</b></article>`).join(""):'<div class="empty">Sin pagos vinculados a clientas.</div>';
+}
+function renderUpcomingAppointments(){
+  const now=new Date();
+  const items=state.citas.filter(c=>{
+    const d=parseLocalDate(dateKey(c.Fecha));
+    return d>=new Date(now.getFullYear(),now.getMonth(),now.getDate()) && !["cancelada","completada"].includes(String(c.Estado||"").toLowerCase());
+  }).sort((a,b)=>`${dateKey(a.Fecha)} ${normalizeTime(a.HoraInicio)}`.localeCompare(`${dateKey(b.Fecha)} ${normalizeTime(b.HoraInicio)}`)).slice(0,6);
+  $("upcomingAppointments").innerHTML=items.length?items.map(c=>`<article onclick='editAppointment(${JSON.stringify(c.ID)})'>
+    <div class="upcoming-date"><strong>${formatDay(parseLocalDate(c.Fecha),{day:"2-digit"})}</strong><span>${formatDay(parseLocalDate(c.Fecha),{month:"short"})}</span></div>
+    <div><strong>${esc(c.ClientaNombre||"Clienta")}</strong><small>${esc(displayTime(c.HoraInicio))} · ${esc(c.Servicio||"")}</small></div>
+    <span class="badge ${slug(c.Estado)}">${esc(c.Estado||"Pendiente")}</span>
+  </article>`).join(""):'<div class="empty">No hay próximas citas.</div>';
 }
 function listAppointments(items){
   if(!items.length)return '<div class="empty">No hay citas para mostrar.</div>';

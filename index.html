@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#9f1d59">
-  <title>ArtBeauty V3.2 · Galería de Trabajos</title>
-  <link rel="stylesheet" href="styles.css?v=3.2.0">
+  <title>ArtBeauty V3.3 · Dashboard Pro</title>
+  <link rel="stylesheet" href="styles.css?v=3.3.0">
 </head>
 <body>
 <div id="toast" class="toast"></div>
@@ -58,20 +58,61 @@
       <div class="user-chip"><span id="userName"></span><b id="userInitial"></b></div>
     </header>
 
+    
     <section id="dashboard" class="page active">
-      <div class="welcome">
-        <div><span class="eyebrow">ARTBEAUTY LIVE</span><h3 id="smartGreeting">Hola 👋</h3><p id="smartSummary">Cargando el resumen del negocio…</p></div>
-        <button class="secondary" data-go="calendar">Ver agenda</button>
+      <div class="page-actions dashboard-heading">
+        <div>
+          <span class="version-chip">DASHBOARD PRO V3.3</span>
+          <h3>Resumen del negocio</h3>
+          <p>Ventas, citas, clientas y rendimiento en un solo lugar.</p>
+        </div>
+        <div class="dashboard-range">
+          <label>Periodo
+            <select id="dashboardRange">
+              <option value="today">Hoy</option>
+              <option value="week">Esta semana</option>
+              <option value="month" selected>Este mes</option>
+              <option value="year">Este año</option>
+              <option value="all">Todo</option>
+            </select>
+          </label>
+        </div>
       </div>
-      <div class="stats-grid">
-        <article><span>Citas de hoy</span><strong id="statToday">0</strong><small>Agenda actual</small></article>
-        <article><span>Clientas</span><strong id="statClients">0</strong><small>Registradas</small></article>
-        <article><span>Ingresos</span><strong id="statIncome">$0.00</strong><small>Total registrado</small></article>
-        <article><span>Ganancia estimada</span><strong id="statProfit">$0.00</strong><small>Ingresos menos gastos</small></article>
-      </div>
-      <div class="two-col">
-        <article class="panel"><div class="panel-head"><h3>Agenda de hoy</h3><button class="link-btn" data-go="calendar">Abrir</button></div><div id="todayAppointments" class="list"></div></article>
-        <article class="panel"><div class="panel-head"><h3>Acciones rápidas</h3></div><div class="quick-grid"><button id="quickAppointment">+ Nueva cita</button><button id="quickClient">+ Nueva clienta</button><button id="quickPayment">+ Registrar pago</button><button data-go="reception">Modo recepción</button></div></article>
+
+      <div id="dashboardStats" class="stats-grid dashboard-stats"></div>
+
+      <div class="dashboard-grid">
+        <section class="panel dashboard-panel dashboard-sales-panel">
+          <div class="panel-title">
+            <div><h4>Ingresos por día</h4><p id="salesChartSubtitle">Periodo seleccionado</p></div>
+          </div>
+          <div id="salesChart" class="bar-chart"></div>
+        </section>
+
+        <section class="panel dashboard-panel">
+          <div class="panel-title"><div><h4>Estado de citas</h4><p>Distribución del periodo</p></div></div>
+          <div id="appointmentStatusChart" class="donut-wrap"></div>
+        </section>
+
+        <section class="panel dashboard-panel">
+          <div class="panel-title"><div><h4>Servicios más vendidos</h4><p>Los más solicitados</p></div></div>
+          <div id="topServicesList" class="rank-list"></div>
+        </section>
+
+        <section class="panel dashboard-panel">
+          <div class="panel-title"><div><h4>Rendimiento por empleada</h4><p>Citas e ingresos</p></div></div>
+          <div id="employeePerformance" class="employee-performance"></div>
+        </section>
+
+        <section class="panel dashboard-panel">
+          <div class="panel-title"><div><h4>Clientas destacadas</h4><p>Mayor gasto registrado</p></div></div>
+          <div id="topClientsList" class="rank-list"></div>
+        </section>
+
+        <section class="panel dashboard-panel">
+          <div class="panel-title"><div><h4>Próximas citas</h4><p>Agenda más cercana</p></div></div>
+          <div id="upcomingAppointments" class="dashboard-upcoming"></div>
+        </section>
       </div>
     </section>
 
@@ -150,7 +191,7 @@
 </div>
 
 <dialog id="modal"><form id="modalForm"><div class="modal-head"><h3 id="modalTitle"></h3><button type="button" id="modalClose" class="icon-btn">✕</button></div><div id="modalBody" class="modal-body"></div><div class="modal-actions"><button type="button" id="modalCancel" class="secondary">Cancelar</button><button type="submit" id="modalSave" class="primary">Guardar</button></div></form></dialog>
-<script src="app.js?v=3.2.0"></script>
+<script src="app.js?v=3.3.0"></script>
 
   <dialog id="clientProfileDialog" class="client-profile-dialog">
     <div class="client-profile-shell">
