@@ -1,4 +1,4 @@
-console.info("ArtBeauty V4.2.1 Precios desde cargado correctamente");
+console.info("ArtBeauty V4.2.2 Precio final cargado correctamente");
 const API_URL = "https://script.google.com/macros/s/AKfycbyNdSbHFgVadu08GVDlNQT5Dqat97l8pi33nVlkDBcBv1o-unYV8Gewq4Fi2NdK7ywNGw/exec";
 const state = { user:null, dashboard:null, citas:[], clientas:[], servicios:[], pagos:[], configuracion:{}, inventory:[], expenses:[], employees:[], portalRequests:[], users:[], portalData:null, calendarView:"week", calendarDate:new Date() };
 const $ = id => document.getElementById(id);
@@ -1709,10 +1709,37 @@ function renderPortal(){
 }
 
 window.approvePortalRequest=async id=>{
+  const solicitud=state.portalRequests.find(x=>String(x.ID)===String(id));
+  if(!solicitud)return;
+
+  const precioActual=Number(solicitud.Total||solicitud.PrecioBase||0);
+  const entrada=prompt(
+    `Confirma el precio final para ${solicitud.ClientaNombre||"la clienta"}:`,
+    precioActual.toFixed(2)
+  );
+
+  if(entrada===null)return;
+
+  const precioFinal=Number(String(entrada).replace(/[$,]/g,"").trim());
+  if(!Number.isFinite(precioFinal)||precioFinal<0){
+    toast("Escribe un precio válido.",true);
+    return;
+  }
+
+  const notaPrecio=prompt(
+    "Mensaje opcional sobre el precio:",
+    "Precio confirmado según el diseño solicitado."
+  );
+
   try{
-    await api("approvePortalRequest",{ID:id,usuarioActual:state.user?.Nombre||"Sistema"});
+    await api("approvePortalRequest",{
+      ID:id,
+      PrecioFinal:precioFinal,
+      NotaPrecio:notaPrecio||"",
+      usuarioActual:state.user?.Nombre||"Sistema"
+    });
     await loadAll();
-    toast("Solicitud aprobada y agregada a la agenda.");
+    toast("Solicitud aprobada con precio final confirmado.");
   }catch(err){toast(err.message,true)}
 };
 
@@ -1730,7 +1757,11 @@ window.portalWhatsApp=id=>{
   if(!r)return;
   let phone=String(r.Telefono||"").replace(/\D/g,"");
   if(phone.length===10)phone="1"+phone;
-  const msg=`Hola ${r.ClientaNombre||""} 🌸 Recibimos tu solicitud en ArtBeauty para ${String(r.Fecha||"").slice(0,10)} a las ${displayTime(r.HoraInicio)}. Servicio: ${r.Servicio||""}.`;
+  const precio=Number(r.Total||r.PrecioBase||0);
+  const estado=String(r.Estado||"").toLowerCase();
+  const precioTexto=precio?` Precio: ${money(precio)}.`:"";
+  const estadoTexto=estado==="confirmada"?"Tu cita está confirmada.":"Recibimos tu solicitud.";
+  const msg=`Hola ${r.ClientaNombre||""} 🌸 ${estadoTexto} Fecha: ${String(r.Fecha||"").slice(0,10)} a las ${displayTime(r.HoraInicio)}. Servicio: ${r.Servicio||""}.${precioTexto}`;
   window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`,"_blank");
 };
 
