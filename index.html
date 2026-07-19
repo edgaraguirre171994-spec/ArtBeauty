@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#9f1d59">
-  <title>ArtBeauty V3.5.2 · Menú WhatsApp y Acciones de Agenda</title>
-  <link rel="stylesheet" href="styles.css?v=3.5.2">
+  <title>ArtBeauty V4 Enterprise</title>
+  <link rel="stylesheet" href="styles.css?v=4.0.0">
 </head>
 <body>
 <div id="toast" class="toast"></div>
@@ -46,6 +46,11 @@
       <button data-page="reception">✓ <span>Recepción</span></button>
       <button data-page="lealtad">★ <span>Puntos VIP</span></button>
       <button data-page="mensajes">💬 <span>WhatsApp</span></button>
+      <button data-page="inventory">▦ <span>Inventario</span></button>
+      <button data-page="finance">◈ <span>Finanzas</span></button>
+      <button data-page="employees">♚ <span>Empleadas</span></button>
+      <button data-page="reports">▤ <span>Reportes</span></button>
+      <button data-page="portal">◎ <span>Portal clientas</span></button>
       <button data-page="ai">✧ <span>ArtBeauty AI</span></button>
       <button data-page="settings" class="admin-nav">⚙ <span>Configuración</span></button>
     </nav>
@@ -64,7 +69,7 @@
     <section id="dashboard" class="page active">
       <div class="page-actions dashboard-heading">
         <div>
-          <span class="version-chip">DASHBOARD PRO V3.3</span>
+          <span class="version-chip">ARTBEAUTY V4 ENTERPRISE</span>
           <h3>Resumen del negocio</h3>
           <p>Ventas, citas, clientas y rendimiento en un solo lugar.</p>
         </div>
@@ -175,6 +180,94 @@
       <article class="panel"><div class="panel-head"><h3>Citas de hoy</h3></div><div id="receptionAppointments" class="list"></div></article>
     </section>
 
+
+    <section id="inventory" class="page">
+      <div class="page-actions">
+        <div><span class="version-chip">V4 · INVENTARIO</span><h3>Inventario de productos</h3><p>Control de existencias, mínimos, compras y consumo.</p></div>
+        <button id="inventoryNewBtn" class="primary">+ Nuevo producto</button>
+      </div>
+      <div id="inventoryStats" class="stats-grid compact"></div>
+      <div class="panel filters v4-filters">
+        <input id="inventorySearch" placeholder="Buscar producto, marca, categoría o proveedor">
+        <select id="inventoryFilter"><option value="">Todos</option><option value="low">Stock bajo</option><option value="out">Agotados</option><option value="active">Activos</option></select>
+        <button id="inventoryExportBtn" class="secondary">Exportar CSV</button>
+      </div>
+      <div id="inventoryTable" class="table-wrap"></div>
+    </section>
+
+    <section id="finance" class="page">
+      <div class="page-actions">
+        <div><span class="version-chip">V4 · FINANZAS</span><h3>Gastos y utilidad real</h3><p>Ingresos menos gastos para conocer la ganancia del negocio.</p></div>
+        <button id="expenseNewBtn" class="primary">+ Registrar gasto</button>
+      </div>
+      <div id="financeStats" class="stats-grid"></div>
+      <div class="panel filters v4-filters">
+        <select id="financeRange"><option value="month">Este mes</option><option value="week">Esta semana</option><option value="year">Este año</option><option value="all">Todo</option></select>
+        <input id="expenseSearch" placeholder="Buscar concepto, categoría o proveedor">
+        <button id="expenseExportBtn" class="secondary">Exportar CSV</button>
+      </div>
+      <div class="dashboard-grid">
+        <section class="panel dashboard-panel dashboard-sales-panel">
+          <div class="panel-title"><div><h4>Ingresos vs. gastos</h4><p>Comparación del periodo</p></div></div>
+          <div id="profitBars" class="v4-profit-bars"></div>
+        </section>
+        <section class="panel dashboard-panel">
+          <div class="panel-title"><div><h4>Gastos por categoría</h4><p>Distribución del periodo</p></div></div>
+          <div id="expenseCategories" class="rank-list"></div>
+        </section>
+      </div>
+      <div id="expensesTable" class="table-wrap v4-table-gap"></div>
+    </section>
+
+    <section id="employees" class="page">
+      <div class="page-actions">
+        <div><span class="version-chip">V4 · EMPLEADAS</span><h3>Equipo y comisiones</h3><p>Agenda, ventas, productividad y porcentajes.</p></div>
+        <button id="employeeNewBtn" class="primary">+ Nueva empleada</button>
+      </div>
+      <div id="employeeStats" class="stats-grid compact"></div>
+      <div id="employeeCards" class="cards-grid"></div>
+    </section>
+
+    <section id="reports" class="page">
+      <div class="page-actions">
+        <div><span class="version-chip">V4 · REPORTES</span><h3>Centro de reportes</h3><p>Consulta, imprime y exporta información del negocio.</p></div>
+        <button id="reportPrintBtn" class="primary">Imprimir / Guardar PDF</button>
+      </div>
+      <div class="panel report-controls">
+        <label>Desde<input id="reportFrom" type="date"></label>
+        <label>Hasta<input id="reportTo" type="date"></label>
+        <label>Reporte<select id="reportType"><option value="summary">Resumen general</option><option value="payments">Pagos</option><option value="appointments">Citas</option><option value="expenses">Gastos</option><option value="inventory">Inventario</option><option value="employees">Empleadas</option></select></label>
+        <button id="reportGenerateBtn" class="secondary">Generar</button>
+        <button id="reportExportBtn" class="secondary">Exportar CSV</button>
+      </div>
+      <section id="reportOutput" class="panel report-output"></section>
+    </section>
+
+    <section id="portal" class="page">
+      <div class="page-actions">
+        <div><span class="version-chip">V4 · PORTAL CLIENTAS</span><h3>Solicitudes de reservación</h3><p>Formulario sencillo para capturar solicitudes desde celular o tablet.</p></div>
+        <button id="portalCopyLinkBtn" class="secondary">Copiar enlace de la app</button>
+      </div>
+      <div class="portal-grid">
+        <section class="panel portal-preview">
+          <div class="portal-brand"><div class="logo small">AB</div><div><strong>ArtBeauty</strong><span>Reserva tu cita</span></div></div>
+          <form id="portalBookingForm" class="portal-form">
+            <label>Nombre<input id="portalName" required></label>
+            <label>Teléfono<input id="portalPhone" inputmode="tel" required></label>
+            <label>Servicio<select id="portalService" required></select></label>
+            <label>Fecha preferida<input id="portalDate" type="date" required></label>
+            <label>Hora preferida<input id="portalTime" type="time" required></label>
+            <label>Notas<textarea id="portalNotes" placeholder="Diseño, color o información especial"></textarea></label>
+            <button class="primary full" type="submit">Enviar solicitud</button>
+          </form>
+        </section>
+        <section class="panel">
+          <div class="panel-title"><div><h4>Solicitudes recibidas</h4><p>Aprueba y conviértelas en citas.</p></div></div>
+          <div id="portalRequests" class="portal-requests"></div>
+        </section>
+      </div>
+    </section>
+
     <section id="ai" class="page">
       <div class="ai-layout">
         <article class="panel ai-chat"><div class="panel-head"><div><h3>ArtBeauty AI</h3><p>Asistente basado en los datos actuales del negocio.</p></div><span class="online">● En línea</span></div><div id="aiMessages" class="ai-messages"><div class="message bot">Hola. Pregúntame por citas, ingresos, clientas o el servicio más solicitado.</div></div><div class="quick-prompts"><button>¿Cuántas citas hay hoy?</button><button>¿Cuánto hemos vendido?</button><button>¿Cuál servicio se solicita más?</button></div><div class="ai-input"><input id="aiInput" placeholder="Escribe una pregunta…"><button id="aiSend" class="primary">Enviar</button></div></article>
@@ -264,7 +357,7 @@
 </div>
 
 <dialog id="modal"><form id="modalForm"><div class="modal-head"><h3 id="modalTitle"></h3><button type="button" id="modalClose" class="icon-btn">✕</button></div><div id="modalBody" class="modal-body"></div><div class="modal-actions"><button type="button" id="modalCancel" class="secondary">Cancelar</button><button type="submit" id="modalSave" class="primary">Guardar</button></div></form></dialog>
-<script src="app.js?v=3.5.2"></script>
+<script src="app.js?v=4.0.0"></script>
 
   <dialog id="clientProfileDialog" class="client-profile-dialog">
     <div class="client-profile-shell">
@@ -425,6 +518,15 @@
         <button type="button" id="whatsappSave" class="secondary">Guardar estado</button>
         <button type="submit" class="primary whatsapp-open-btn">Abrir WhatsApp</button>
       </footer>
+    </form>
+  </dialog>
+
+
+  <dialog id="v4Dialog" class="v4-dialog">
+    <form id="v4Form">
+      <header class="modal-head"><h3 id="v4DialogTitle">Nuevo registro</h3><button type="button" id="v4DialogClose" class="icon-btn">×</button></header>
+      <div id="v4DialogBody" class="modal-body"></div>
+      <footer class="modal-actions"><button type="button" id="v4DialogCancel" class="secondary">Cancelar</button><button type="submit" class="primary">Guardar</button></footer>
     </form>
   </dialog>
 

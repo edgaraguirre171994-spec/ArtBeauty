@@ -298,3 +298,47 @@ body.dark .calendar-mini.edit{background:#3c2932;color:#f2dce6}
   .appointment-actions{min-width:0;display:grid;grid-template-columns:repeat(3,1fr)}
   .agenda-action{padding:8px 5px}
 }
+
+/* ===== ArtBeauty V4 Enterprise ===== */
+.v4-filters{grid-template-columns:2fr 1fr auto}
+.v4-table-gap{margin-top:18px}
+.v4-low-stock td{background:rgba(255,225,179,.28)}
+.v4-low-stock td:nth-child(3){color:#a76200;font-weight:900}
+.v4-profit-bars{display:grid;gap:18px;padding:10px}
+.v4-profit-bars>div{display:grid;grid-template-columns:70px 1fr 90px;align-items:center;gap:10px}
+.v4-bar{height:16px;border-radius:999px;background:#eee3e8;overflow:hidden}
+.v4-bar i{display:block;height:100%;background:linear-gradient(90deg,#25815b,#63c99a);border-radius:inherit}
+.v4-bar.expense i{background:linear-gradient(90deg,#bd3d4d,#e28691)}
+.portal-grid{display:grid;grid-template-columns:minmax(320px,.8fr) 1.2fr;gap:18px}
+.portal-preview{max-width:520px;width:100%;justify-self:center}
+.portal-brand{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+.portal-brand strong,.portal-brand span{display:block}.portal-brand span{font-size:11px;color:var(--muted)}
+.portal-form{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}.portal-form label:nth-last-of-type(1){grid-column:1/-1}
+.portal-requests{display:grid;gap:9px}
+.portal-requests article{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;padding:13px;border:1px solid var(--line);border-radius:14px}
+.portal-requests strong,.portal-requests small,.portal-requests span{display:block}.portal-requests small,.portal-requests>article>div>span{font-size:10px;color:var(--muted);margin-top:3px}
+.portal-actions{display:flex;gap:6px}
+.report-controls{display:grid;grid-template-columns:1fr 1fr 1.4fr auto auto;gap:12px;align-items:end;margin-bottom:18px}
+.report-controls label{margin:0}
+.report-output{min-height:350px}
+.report-header{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;border-bottom:2px solid var(--line);padding-bottom:14px;margin-bottom:18px}
+.report-header h2{margin-bottom:5px}.report-header p,.report-header span{color:var(--muted);font-size:11px}
+.v4-dialog{width:min(780px,96vw)}
+.v4-dialog .modal-body{max-height:65vh}
+#inventoryTable small{display:block;color:var(--muted);font-size:10px;margin-top:3px}
+@media(max-width:950px){
+  .portal-grid{grid-template-columns:1fr}
+  .report-controls{grid-template-columns:1fr 1fr}
+}
+@media(max-width:760px){
+  .v4-filters{grid-template-columns:1fr}
+  .portal-form{grid-template-columns:1fr}.portal-form label:nth-last-of-type(1){grid-column:auto}
+  .portal-requests article{grid-template-columns:1fr auto}.portal-actions{grid-column:1/-1}
+  .report-controls{grid-template-columns:1fr}
+}
+@media print{
+  .sidebar,.topbar,.page-actions,.report-controls,#toast,#loading{display:none!important}
+  .app{display:block}.page{display:none!important;padding:0}.page#reports{display:block!important}
+  #reportOutput{display:block!important;border:0;box-shadow:none}
+  body{background:#fff;color:#000}
+}

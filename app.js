@@ -1,6 +1,6 @@
-console.info("ArtBeauty V3.5.2 cargado correctamente");
+console.info("ArtBeauty V4.0.0 Enterprise cargado correctamente");
 const API_URL = "https://script.google.com/macros/s/AKfycbyNdSbHFgVadu08GVDlNQT5Dqat97l8pi33nVlkDBcBv1o-unYV8Gewq4Fi2NdK7ywNGw/exec";
-const state = { user:null, dashboard:null, citas:[], clientas:[], servicios:[], pagos:[], configuracion:{}, calendarView:"week", calendarDate:new Date() };
+const state = { user:null, dashboard:null, citas:[], clientas:[], servicios:[], pagos:[], configuracion:{}, inventory:[], expenses:[], employees:[], portalRequests:[], calendarView:"week", calendarDate:new Date() };
 const $ = id => document.getElementById(id);
 const money = n => new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(Number(n||0));
 const today = () => new Date().toISOString().slice(0,10);
@@ -137,6 +137,30 @@ function bindEvents(){
   on("aiInput","keydown",e=>{if(e.key==="Enter")sendAI()});
   document.querySelectorAll(".quick-prompts button").forEach(b=>b.addEventListener("click",()=>{$("aiInput").value=b.textContent;sendAI()}));
 
+
+  click("inventoryNewBtn",()=>openV4Dialog("inventory"));
+  on("inventorySearch","input",renderInventory);
+  on("inventoryFilter","change",renderInventory);
+  click("inventoryExportBtn",()=>exportCSV("inventario",inventoryRows()));
+
+  click("expenseNewBtn",()=>openV4Dialog("expense"));
+  on("financeRange","change",renderFinance);
+  on("expenseSearch","input",renderFinance);
+  click("expenseExportBtn",()=>exportCSV("gastos",expenseRows()));
+
+  click("employeeNewBtn",()=>openV4Dialog("employee"));
+
+  click("reportGenerateBtn",renderReports);
+  click("reportPrintBtn",()=>window.print());
+  click("reportExportBtn",exportCurrentReport);
+
+  on("portalBookingForm","submit",savePortalRequest);
+  click("portalCopyLinkBtn",copyPortalLink);
+
+  click("v4DialogClose",closeV4Dialog);
+  click("v4DialogCancel",closeV4Dialog);
+  on("v4Form","submit",saveV4Dialog);
+
   on("themeSelect","change",e=>applyTheme(e.target.value));
   click("saveSettingsBtn",saveSettings);
 
@@ -182,13 +206,13 @@ async function loadAll(){
     const [dashboard,citas,clientas,servicios,pagos,config]=await Promise.all([
       api("getDashboard"),api("getCitas"),api("getClientas"),api("getServicios",{soloActivos:false}),api("getPagos"),api("getConfiguracion")
     ]);
-    Object.assign(state,{dashboard,citas,clientas,servicios,pagos,configuracion:config});
+    Object.assign(state,{dashboard,citas,clientas,servicios,pagos,configuracion:config}); await loadV4LocalData();
     renderAll();$("apiStatus").textContent="Conectado";$("apiStatus").style.color="var(--success)";
   }catch(err){toast(err.message,true);$("apiStatus").textContent="Sin conexión";$("apiStatus").style.color="var(--danger)"}finally{loading(false)}
 }
 function renderAll(){renderDashboard();
   renderLoyaltyPage();
-  renderWhatsAppPage();renderAppointments();renderClients();renderServices();renderPayments();renderReception();renderSettings();renderAIRecommendations()}
+  renderWhatsAppPage();renderAppointments();renderClients();renderServices();renderPayments();renderReception();renderSettings();renderAIRecommendations();renderInventory();renderFinance();renderEmployees();renderReports();renderPortal();}
 
 function renderDashboard(){
   renderDashboardPro();
@@ -1261,4 +1285,227 @@ async function renderWhatsAppPage(){
       </div>
       <button class="whatsapp-action" onclick='openWhatsAppDialog(${JSON.stringify(c.ID)})'>Enviar mensaje</button>
     </article>`).join(""):`<div class="empty">No hay citas que coincidan con el filtro.</div>`;
+}
+
+
+/* ===== ArtBeauty V4 Enterprise ===== */
+const V4_DB="ArtBeautyV4Enterprise";
+const V4_VERSION=1;
+let v4dbPromise=null;
+let v4DialogMode="",v4EditingId="";
+
+function openV4DB(){
+  if(v4dbPromise)return v4dbPromise;
+  v4dbPromise=new Promise((resolve,reject)=>{
+    const req=indexedDB.open(V4_DB,V4_VERSION);
+    req.onupgradeneeded=()=>{
+      const db=req.result;
+      ["inventory","expenses","employees","portalRequests"].forEach(name=>{
+        if(!db.objectStoreNames.contains(name))db.createObjectStore(name,{keyPath:"id"});
+      });
+    };
+    req.onsuccess=()=>resolve(req.result);
+    req.onerror=()=>reject(req.error);
+  });
+  return v4dbPromise;
+}
+async function v4GetAll(store){
+  const db=await openV4DB();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(store,"readonly"),req=tx.objectStore(store).getAll();
+    req.onsuccess=()=>resolve(req.result||[]);req.onerror=()=>reject(req.error);
+  });
+}
+async function v4Put(store,row){
+  const db=await openV4DB();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(store,"readwrite");tx.objectStore(store).put(row);
+    tx.oncomplete=()=>resolve(row);tx.onerror=()=>reject(tx.error);
+  });
+}
+async function v4Delete(store,id){
+  const db=await openV4DB();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(store,"readwrite");tx.objectStore(store).delete(id);
+    tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);
+  });
+}
+async function loadV4LocalData(){
+  const [inventory,expenses,employees,portalRequests]=await Promise.all([
+    v4GetAll("inventory"),v4GetAll("expenses"),v4GetAll("employees"),v4GetAll("portalRequests")
+  ]);
+  Object.assign(state,{inventory,expenses,employees,portalRequests});
+}
+function uid(prefix){return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2,7)}`}
+function rangeFor(mode){
+  const now=new Date(),start=new Date(now),end=new Date(now);start.setHours(0,0,0,0);end.setHours(23,59,59,999);
+  if(mode==="week"){const d=start.getDay()||7;start.setDate(start.getDate()-d+1);end.setDate(start.getDate()+6)}
+  else if(mode==="month"){start.setDate(1);end.setMonth(start.getMonth()+1,0)}
+  else if(mode==="year"){start.setMonth(0,1);end.setMonth(11,31)}
+  else if(mode==="all"){start.setFullYear(2000,0,1);end.setFullYear(2100,11,31)}
+  return {start,end};
+}
+function rowDateInRange(value,start,end){const d=parseLocalDate(dateKey(value));return d>=start&&d<=end}
+
+window.openV4Dialog=(mode,id="")=>{
+  v4DialogMode=mode;v4EditingId=id;
+  let row={},title="",body="";
+  if(mode==="inventory"){
+    row=state.inventory.find(x=>x.id===id)||{};title=id?"Editar producto":"Nuevo producto";
+    body=`<label>Producto<input id="v4Name" value="${esc(row.name||"")}" required></label>
+      <label>Marca<input id="v4Brand" value="${esc(row.brand||"")}"></label>
+      <label>Categoría<input id="v4Category" value="${esc(row.category||"")}"></label>
+      <label>Proveedor<input id="v4Supplier" value="${esc(row.supplier||"")}"></label>
+      <label>Existencia<input id="v4Stock" type="number" step="0.01" value="${Number(row.stock||0)}" required></label>
+      <label>Mínimo<input id="v4Minimum" type="number" step="0.01" value="${Number(row.minimum||0)}"></label>
+      <label>Costo unitario<input id="v4Cost" type="number" step="0.01" value="${Number(row.cost||0)}"></label>
+      <label>Precio de venta<input id="v4Price" type="number" step="0.01" value="${Number(row.price||0)}"></label>
+      <label class="wide">Notas<textarea id="v4Notes">${esc(row.notes||"")}</textarea></label>`;
+  }else if(mode==="expense"){
+    row=state.expenses.find(x=>x.id===id)||{};title=id?"Editar gasto":"Registrar gasto";
+    body=`<label>Fecha<input id="v4Date" type="date" value="${row.date||today()}" required></label>
+      <label>Categoría<select id="v4Category"><option>Productos</option><option>Renta</option><option>Servicios</option><option>Nómina</option><option>Publicidad</option><option>Equipo</option><option>Otro</option></select></label>
+      <label>Concepto<input id="v4Concept" value="${esc(row.concept||"")}" required></label>
+      <label>Proveedor<input id="v4Supplier" value="${esc(row.supplier||"")}"></label>
+      <label>Monto<input id="v4Amount" type="number" step="0.01" value="${Number(row.amount||0)}" required></label>
+      <label>Método<select id="v4Method"><option>Efectivo</option><option>Tarjeta</option><option>Transferencia</option><option>Otro</option></select></label>
+      <label class="wide">Notas<textarea id="v4Notes">${esc(row.notes||"")}</textarea></label>`;
+  }else{
+    row=state.employees.find(x=>x.id===id)||{};title=id?"Editar empleada":"Nueva empleada";
+    body=`<label>Nombre<input id="v4Name" value="${esc(row.name||"")}" required></label>
+      <label>Teléfono<input id="v4Phone" value="${esc(row.phone||"")}"></label>
+      <label>Especialidad<input id="v4Specialty" value="${esc(row.specialty||"")}"></label>
+      <label>Comisión %<input id="v4Commission" type="number" min="0" max="100" value="${Number(row.commission||0)}"></label>
+      <label>Horario<input id="v4Schedule" value="${esc(row.schedule||"")}"></label>
+      <label>Estado<select id="v4Status"><option>Activa</option><option>Inactiva</option></select></label>`;
+  }
+  $("v4DialogTitle").textContent=title;$("v4DialogBody").innerHTML=body;
+  if(row.category&&$("v4Category"))$("v4Category").value=row.category;
+  if(row.method&&$("v4Method"))$("v4Method").value=row.method;
+  if(row.status&&$("v4Status"))$("v4Status").value=row.status;
+  $("v4Dialog").showModal();
+};
+function closeV4Dialog(){safeCloseDialog("v4Dialog");v4DialogMode="";v4EditingId="";$("v4Form")?.reset()}
+async function saveV4Dialog(e){
+  e.preventDefault();
+  try{
+    if(v4DialogMode==="inventory"){
+      const row={id:v4EditingId||uid("INV"),name:$("v4Name").value.trim(),brand:$("v4Brand").value.trim(),category:$("v4Category").value.trim(),supplier:$("v4Supplier").value.trim(),stock:Number($("v4Stock").value||0),minimum:Number($("v4Minimum").value||0),cost:Number($("v4Cost").value||0),price:Number($("v4Price").value||0),notes:$("v4Notes").value.trim(),active:true,updatedAt:new Date().toISOString()};
+      await v4Put("inventory",row);
+    }else if(v4DialogMode==="expense"){
+      const row={id:v4EditingId||uid("EXP"),date:$("v4Date").value,category:$("v4Category").value,concept:$("v4Concept").value.trim(),supplier:$("v4Supplier").value.trim(),amount:Number($("v4Amount").value||0),method:$("v4Method").value,notes:$("v4Notes").value.trim(),updatedAt:new Date().toISOString()};
+      await v4Put("expenses",row);
+    }else{
+      const row={id:v4EditingId||uid("EMP"),name:$("v4Name").value.trim(),phone:$("v4Phone").value.trim(),specialty:$("v4Specialty").value.trim(),commission:Number($("v4Commission").value||0),schedule:$("v4Schedule").value.trim(),status:$("v4Status").value,updatedAt:new Date().toISOString()};
+      await v4Put("employees",row);
+    }
+    await loadV4LocalData();renderInventory();renderFinance();renderEmployees();renderReports();closeV4Dialog();toast("Registro guardado.");
+  }catch(err){toast(err.message||"No se pudo guardar.",true)}
+}
+
+function inventoryRows(){
+  const q=String($("inventorySearch")?.value||"").toLowerCase(),filter=$("inventoryFilter")?.value||"";
+  return state.inventory.filter(x=>{
+    const match=!q||`${x.name} ${x.brand} ${x.category} ${x.supplier}`.toLowerCase().includes(q);
+    const low=Number(x.stock)<=Number(x.minimum),out=Number(x.stock)<=0;
+    return match&&(!filter||(filter==="low"&&low)||(filter==="out"&&out)||(filter==="active"&&x.active!==false));
+  });
+}
+function renderInventory(){
+  if(!$("inventoryTable"))return;
+  const rows=inventoryRows(),value=state.inventory.reduce((s,x)=>s+Number(x.stock||0)*Number(x.cost||0),0),low=state.inventory.filter(x=>Number(x.stock)<=Number(x.minimum)).length;
+  $("inventoryStats").innerHTML=[["Productos",state.inventory.length,"Registrados"],["Stock bajo",low,"Requieren compra"],["Valor inventario",money(value),"Al costo"],["Agotados",state.inventory.filter(x=>Number(x.stock)<=0).length,"Sin existencia"]].map(([a,b,c])=>`<article><span>${a}</span><strong>${b}</strong><small>${c}</small></article>`).join("");
+  $("inventoryTable").innerHTML=rows.length?`<table><thead><tr><th>Producto</th><th>Categoría</th><th>Stock</th><th>Mínimo</th><th>Costo</th><th>Valor</th><th>Proveedor</th><th>Acciones</th></tr></thead><tbody>${rows.map(x=>`<tr class="${Number(x.stock)<=Number(x.minimum)?"v4-low-stock":""}"><td><b>${esc(x.name)}</b><small>${esc(x.brand||"")}</small></td><td>${esc(x.category||"")}</td><td>${x.stock}</td><td>${x.minimum}</td><td>${money(x.cost)}</td><td>${money(Number(x.stock)*Number(x.cost))}</td><td>${esc(x.supplier||"")}</td><td><button class="small-btn" onclick='openV4Dialog("inventory",${JSON.stringify(x.id)})'>Editar</button> <button class="small-btn danger" onclick='deleteV4Record("inventory",${JSON.stringify(x.id)})'>Eliminar</button></td></tr>`).join("")}</tbody></table>`:'<div class="empty">No hay productos registrados.</div>';
+}
+function expenseRows(){
+  const {start,end}=rangeFor($("financeRange")?.value||"month"),q=String($("expenseSearch")?.value||"").toLowerCase();
+  return state.expenses.filter(x=>rowDateInRange(x.date,start,end)&&(!q||`${x.concept} ${x.category} ${x.supplier}`.toLowerCase().includes(q)));
+}
+function renderFinance(){
+  if(!$("financeStats"))return;
+  const mode=$("financeRange")?.value||"month",{start,end}=rangeFor(mode),expenses=expenseRows(),payments=state.pagos.filter(p=>rowDateInRange(p.Fecha,start,end));
+  const income=payments.reduce((s,p)=>s+Number(p.Total||0),0),expense=expenses.reduce((s,x)=>s+Number(x.amount||0),0),profit=income-expense,margin=income?profit/income*100:0;
+  $("financeStats").innerHTML=[["Ingresos",money(income),"Pagos registrados"],["Gastos",money(expense),"Egresos del periodo"],["Utilidad",money(profit),profit>=0?"Ganancia":"Pérdida"],["Margen",`${margin.toFixed(1)}%`,"Utilidad sobre ingresos"]].map(([a,b,c])=>`<article><span>${a}</span><strong>${b}</strong><small>${c}</small></article>`).join("");
+  const max=Math.max(income,expense,1);
+  $("profitBars").innerHTML=`<div><span>Ingresos</span><div class="v4-bar"><i style="width:${income/max*100}%"></i></div><b>${money(income)}</b></div><div><span>Gastos</span><div class="v4-bar expense"><i style="width:${expense/max*100}%"></i></div><b>${money(expense)}</b></div>`;
+  const cats={};expenses.forEach(x=>cats[x.category]=(cats[x.category]||0)+Number(x.amount||0));
+  $("expenseCategories").innerHTML=Object.entries(cats).sort((a,b)=>b[1]-a[1]).map(([n,v],i)=>`<article><span class="rank-number">${i+1}</span><div><strong>${esc(n)}</strong><small>Gasto acumulado</small></div><b>${money(v)}</b></article>`).join("")||'<div class="empty">Sin gastos.</div>';
+  $("expensesTable").innerHTML=expenses.length?`<table><thead><tr><th>Fecha</th><th>Categoría</th><th>Concepto</th><th>Proveedor</th><th>Método</th><th>Monto</th><th>Acciones</th></tr></thead><tbody>${expenses.map(x=>`<tr><td>${esc(x.date)}</td><td>${esc(x.category)}</td><td>${esc(x.concept)}</td><td>${esc(x.supplier||"")}</td><td>${esc(x.method||"")}</td><td>${money(x.amount)}</td><td><button class="small-btn" onclick='openV4Dialog("expense",${JSON.stringify(x.id)})'>Editar</button> <button class="small-btn danger" onclick='deleteV4Record("expenses",${JSON.stringify(x.id)})'>Eliminar</button></td></tr>`).join("")}</tbody></table>`:'<div class="empty">No hay gastos en este periodo.</div>';
+}
+function employeePerformanceData(emp){
+  const citas=state.citas.filter(c=>String(c.Empleada||"").trim().toLowerCase()===String(emp.name||"").trim().toLowerCase());
+  const sales=citas.reduce((s,c)=>s+Number(c.Total||c.PrecioBase||0),0);
+  return {citas:citas.length,sales,commission:sales*Number(emp.commission||0)/100};
+}
+function renderEmployees(){
+  if(!$("employeeCards"))return;
+  const active=state.employees.filter(x=>x.status!=="Inactiva"),totalSales=state.employees.reduce((s,e)=>s+employeePerformanceData(e).sales,0);
+  $("employeeStats").innerHTML=[["Empleadas",state.employees.length,"Registradas"],["Activas",active.length,"Disponibles"],["Ventas atribuidas",money(totalSales),"Según citas"],["Comisiones",money(state.employees.reduce((s,e)=>s+employeePerformanceData(e).commission,0)),"Estimadas"]].map(([a,b,c])=>`<article><span>${a}</span><strong>${b}</strong><small>${c}</small></article>`).join("");
+  $("employeeCards").innerHTML=state.employees.length?state.employees.map(e=>{const p=employeePerformanceData(e);return `<article class="service-card"><div class="client-card-top"><div class="client-avatar">${esc((e.name||"?")[0])}</div><div><strong>${esc(e.name)}</strong><p>${esc(e.specialty||"Sin especialidad")}</p></div></div><div class="client-card-metrics"><span><b>${p.citas}</b><small>Citas</small></span><span><b>${money(p.sales)}</b><small>Ventas</small></span></div><p class="muted">Comisión ${e.commission||0}% · ${money(p.commission)}</p><p class="muted">${esc(e.schedule||"Sin horario")}</p><div class="card-actions"><button class="small-btn" onclick='openV4Dialog("employee",${JSON.stringify(e.id)})'>Editar</button><button class="small-btn danger" onclick='deleteV4Record("employees",${JSON.stringify(e.id)})'>Eliminar</button></div></article>`}).join(""):'<div class="empty">No hay empleadas registradas.</div>';
+}
+window.deleteV4Record=async(store,id)=>{
+  if(!confirm("¿Eliminar este registro?"))return;
+  await v4Delete(store,id);await loadV4LocalData();renderInventory();renderFinance();renderEmployees();renderPortal();renderReports();toast("Registro eliminado.");
+};
+
+function reportDateRange(){
+  const from=$("reportFrom"),to=$("reportTo");
+  if(from&&!from.value){const d=new Date();d.setDate(1);from.value=localISO(d)}
+  if(to&&!to.value)to.value=today();
+  return {start:parseLocalDate(from.value),end:new Date(parseLocalDate(to.value).setHours(23,59,59,999))};
+}
+function reportDataset(type){
+  const {start,end}=reportDateRange();
+  if(type==="payments")return state.pagos.filter(x=>rowDateInRange(x.Fecha,start,end));
+  if(type==="appointments")return state.citas.filter(x=>rowDateInRange(x.Fecha,start,end));
+  if(type==="expenses")return state.expenses.filter(x=>rowDateInRange(x.date,start,end));
+  if(type==="inventory")return state.inventory;
+  if(type==="employees")return state.employees.map(e=>({...e,...employeePerformanceData(e)}));
+  return [];
+}
+function renderReports(){
+  if(!$("reportOutput"))return;
+  const type=$("reportType")?.value||"summary",{start,end}=reportDateRange();
+  if(type==="summary"){
+    const payments=state.pagos.filter(x=>rowDateInRange(x.Fecha,start,end)),expenses=state.expenses.filter(x=>rowDateInRange(x.date,start,end)),citas=state.citas.filter(x=>rowDateInRange(x.Fecha,start,end));
+    const income=payments.reduce((s,p)=>s+Number(p.Total||0),0),cost=expenses.reduce((s,x)=>s+Number(x.amount||0),0);
+    $("reportOutput").innerHTML=`<div class="report-header"><div><h2>ArtBeauty · Resumen general</h2><p>${localISO(start)} a ${localISO(end)}</p></div><span>Generado ${new Date().toLocaleString("es-MX")}</span></div><div class="stats-grid compact"><article><span>Ingresos</span><strong>${money(income)}</strong></article><article><span>Gastos</span><strong>${money(cost)}</strong></article><article><span>Utilidad</span><strong>${money(income-cost)}</strong></article></div><div class="stats-grid compact"><article><span>Citas</span><strong>${citas.length}</strong></article><article><span>Clientas</span><strong>${new Set(citas.map(c=>c.ClientaID||c.ClientaNombre)).size}</strong></article><article><span>Ticket promedio</span><strong>${money(payments.length?income/payments.length:0)}</strong></article></div>`;
+    return;
+  }
+  const data=reportDataset(type);
+  $("reportOutput").innerHTML=`<div class="report-header"><div><h2>Reporte: ${esc(type)}</h2><p>${localISO(start)} a ${localISO(end)}</p></div><span>${data.length} registro(s)</span></div>${genericReportTable(data)}`;
+}
+function genericReportTable(data){
+  if(!data.length)return '<div class="empty">No hay información para este reporte.</div>';
+  const keys=Object.keys(data[0]).filter(k=>!["notes"].includes(k)).slice(0,9);
+  return `<div class="table-wrap"><table><thead><tr>${keys.map(k=>`<th>${esc(k)}</th>`).join("")}</tr></thead><tbody>${data.map(r=>`<tr>${keys.map(k=>`<td>${esc(r[k])}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+}
+function exportCurrentReport(){const type=$("reportType").value;if(type==="summary"){toast("Selecciona un reporte detallado para exportar CSV.",true);return}exportCSV(type,reportDataset(type))}
+function exportCSV(name,rows){
+  if(!rows.length){toast("No hay información para exportar.",true);return}
+  const keys=Object.keys(rows[0]),csv=[keys.join(","),...rows.map(r=>keys.map(k=>`"${String(r[k]??"").replace(/"/g,'""')}"`).join(","))].join("\n");
+  const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}),url=URL.createObjectURL(blob),a=document.createElement("a");
+  a.href=url;a.download=`ArtBeauty_${name}_${today()}.csv`;a.click();URL.revokeObjectURL(url);
+}
+
+function renderPortal(){
+  if(!$("portalService"))return;
+  const current=$("portalService").value;
+  $("portalService").innerHTML='<option value="">Seleccionar servicio</option>'+state.servicios.filter(s=>s.Activo!==false&&String(s.Activo).toLowerCase()!=="false").map(s=>`<option>${esc(s.Nombre)}</option>`).join("");
+  if(current)$("portalService").value=current;
+  if(!$("portalDate").value)$("portalDate").value=today();
+  $("portalRequests").innerHTML=state.portalRequests.length?state.portalRequests.sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt))).map(r=>`<article><div><strong>${esc(r.name)}</strong><small>${esc(r.phone)} · ${esc(r.service)}</small><span>${esc(r.date)} ${esc(r.time)}</span></div><span class="badge ${slug(r.status)}">${esc(r.status)}</span><div class="portal-actions"><button class="small-btn" onclick='approvePortalRequest(${JSON.stringify(r.id)})'>Crear cita</button><button class="small-btn danger" onclick='deleteV4Record("portalRequests",${JSON.stringify(r.id)})'>Eliminar</button></div></article>`).join(""):'<div class="empty">No hay solicitudes pendientes.</div>';
+}
+async function savePortalRequest(e){
+  e.preventDefault();
+  const row={id:uid("REQ"),name:$("portalName").value.trim(),phone:$("portalPhone").value.trim(),service:$("portalService").value,date:$("portalDate").value,time:$("portalTime").value,notes:$("portalNotes").value.trim(),status:"Pendiente",createdAt:new Date().toISOString()};
+  await v4Put("portalRequests",row);await loadV4LocalData();renderPortal();e.target.reset();$("portalDate").value=today();toast("Solicitud registrada.");
+}
+window.approvePortalRequest=async id=>{
+  const r=state.portalRequests.find(x=>x.id===id);if(!r)return;
+  const client=state.clientas.find(c=>String(c.Telefono||"").replace(/\D/g,"")===String(r.phone||"").replace(/\D/g,""));
+  go("calendar");openAppointment({ClientaID:client?.ID||"",ClientaNombre:client?.Nombre||r.name,Fecha:r.date,HoraInicio:r.time,Servicio:r.service,Notas:r.notes,Estado:"Pendiente"});
+};
+async function copyPortalLink(){
+  try{await navigator.clipboard.writeText(location.href);toast("Enlace copiado.");}catch{toast("No se pudo copiar el enlace.",true)}
 }
