@@ -1,4 +1,4 @@
-console.info("ArtBeauty V4.0.0 Enterprise cargado correctamente");
+console.info("ArtBeauty V4.0.1 cargado correctamente");
 const API_URL = "https://script.google.com/macros/s/AKfycbyNdSbHFgVadu08GVDlNQT5Dqat97l8pi33nVlkDBcBv1o-unYV8Gewq4Fi2NdK7ywNGw/exec";
 const state = { user:null, dashboard:null, citas:[], clientas:[], servicios:[], pagos:[], configuracion:{}, inventory:[], expenses:[], employees:[], portalRequests:[], calendarView:"week", calendarDate:new Date() };
 const $ = id => document.getElementById(id);
